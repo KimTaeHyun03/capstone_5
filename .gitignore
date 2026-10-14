@@ -1,0 +1,5 @@
+.vercel
+.env*
+
+CONNECTION_STATUS.md
+/산출물

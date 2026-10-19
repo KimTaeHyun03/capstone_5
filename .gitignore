@@ -1,5 +1,5 @@
 .vercel
 .env*
 
-CONNECTION_STATUS.md
-/산출물
+# 클로드 워크트리
+.claude/worktrees/

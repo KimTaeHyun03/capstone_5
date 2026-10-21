@@ -3,6 +3,9 @@ import { Alert, Badge, Button, EmptyState, Field, Meter, PageHead, Panel, Sample
 import { stockLevel, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useBase, useRolePath } from '../../layouts/Layouts.jsx';
+import { recordAdjustments } from '../../lib/inventory.js';
+import { markNotificationsRead, resolveShortageReport } from '../../lib/alerts.js';
+import { devUserIdFor } from '../../lib/devUser.js';
 
 const LEVEL = { low: ['red', '부족'], warn: ['orange', '주의'], ok: ['green', '충분'] };
 
@@ -57,13 +60,19 @@ export function InventoryPage() {
 
 /* 4-5 · 부족 알림 수신 (점주·매니저) */
 export function AlertsPage() {
-  const { lowStock, reports, setReports, inventory, notifications, setNotifications } = useApp();
+  const { lowStock, reports, reloadReports, inventory, notifications, loadAlerts } = useApp();
   const toast = useToast();
   const base = useBase();
   const p = useRolePath();
   const ingName = (id) => inventory.find((i) => i.id === id)?.name;
-  const resolve = (id) => { setReports((x) => x.filter((r) => r.id !== id)); toast('신고를 확인 처리했습니다.'); };
-  const readAll = () => { setNotifications((x) => x.map((n) => ({ ...n, read: true }))); toast('모든 알림을 읽음으로 표시했습니다.'); };
+  const resolve = async (r) => {
+    try { await resolveShortageReport(r.reportId); await reloadReports(); toast('신고를 확인 처리했습니다.'); }
+    catch (e) { toast(`처리하지 못했습니다. ${e.message}`); }
+  };
+  const readAll = async () => {
+    try { await markNotificationsRead(devUserIdFor(base)); await loadAlerts(); toast('모든 알림을 읽음으로 표시했습니다.'); }
+    catch (e) { toast(`처리하지 못했습니다. ${e.message}`); }
+  };
   return (
     <>
       <PageHead eyebrow="재고 관리 · 4-4 · 4-5" title="부족 알림" desc="최소 보유량 미달 자동 알림과 직원이 직접 올린 부족 신고입니다."
@@ -93,7 +102,7 @@ export function AlertsPage() {
                     <span className="list-title">{ingName(r.ingredientId)} <Badge tone="orange">직접 신고</Badge></span>
                     <span className="list-sub">{r.by} · {r.at}{r.note ? ` · “${r.note}”` : ''}</span>
                   </div>
-                  <Button variant="secondary" onClick={() => resolve(r.id)}>확인</Button>
+                  <Button variant="secondary" onClick={() => resolve(r)}>확인</Button>
                 </div>
               ))}
             </div>
@@ -119,8 +128,10 @@ export function AlertsPage() {
 
 /* 4-3 · 실사·폐기 기록 (매니저) */
 export function StocktakePage() {
-  const { inventory, setInventory, notify } = useApp();
+  const { inventory, inventorySource, reloadInventory, loadAlerts } = useApp();
   const toast = useToast();
+  const base = useBase();
+  const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState('count');
   const [vals, setVals] = useState({});
   const [reason, setReason] = useState('유통기한 경과');
@@ -134,19 +145,25 @@ export function StocktakePage() {
     return '';
   };
   const filled = inventory.filter((i) => vals[i.id] !== undefined && vals[i.id] !== '');
-  const submit = () => {
+  const submit = async () => {
     const errs = Object.fromEntries(inventory.map((i) => [i.id, validate(vals[i.id], i)]));
     setErrors(errs);
     const bad = inventory.find((i) => errs[i.id]);
     if (bad) { document.getElementById(`st-${bad.id}`)?.focus(); return; }
-    setInventory((list) => list.map((i) => {
-      if (vals[i.id] === undefined || vals[i.id] === '') return i;
-      const n = Number(vals[i.id]);
-      return { ...i, stock: mode === 'count' ? n : Math.max(0, +(i.stock - n).toFixed(2)) };
-    }));
-    notify(`${mode === 'count' ? '재고 실사' : '폐기'} ${filled.length}건이 재고에 반영됐습니다`);
-    toast(`${filled.length}개 품목을 ${mode === 'count' ? '실사 수량으로 보정' : '폐기 처리'}했습니다.`);
-    setVals({});
+    if (inventorySource !== 'db') { toast('DB에 연결되지 않아 저장할 수 없습니다.'); return; }
+    setSaving(true);
+    try {
+      // 재고 변동 기록(실사 보정·폐기) 저장 + 재고 반영은 DB 함수가 처리한다. 부족 알림도 DB 트리거가 보낸다.
+      await recordAdjustments(
+        filled.map((i) => ({ ingredientId: i.ingredientId, qty: Number(vals[i.id]) })),
+        mode === 'count' ? '실사 보정' : '폐기', devUserIdFor(base), mode === 'waste' ? reason : null);
+      await Promise.all([reloadInventory(), loadAlerts()]);
+      toast(`${filled.length}개 품목을 ${mode === 'count' ? '실사 수량으로 보정' : '폐기 처리'}했습니다.`);
+      setVals({});
+    } catch (e) {
+      await reloadInventory(); // 일부만 반영됐을 수 있어 최신 재고로 맞춘다
+      toast(`저장하지 못했습니다. ${e.message}`);
+    } finally { setSaving(false); }
   };
   return (
     <>
@@ -198,7 +215,7 @@ export function StocktakePage() {
           </div>
           <div className="od-cluster" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
             <Button variant="secondary" onClick={() => { setVals({}); setErrors({}); }} disabled={!filled.length}>입력 지우기</Button>
-            <Button icon="check" onClick={submit} disabled={!filled.length}>{filled.length ? `${filled.length}개 품목 반영` : '수량을 입력하세요'}</Button>
+            <Button icon="check" onClick={submit} disabled={!filled.length || saving}>{saving ? '저장 중…' : filled.length ? `${filled.length}개 품목 반영` : '수량을 입력하세요'}</Button>
           </div>
         </Panel>
         {mode === 'waste' && <Alert tone="info" title="폐기량은 예측 오차 보정에 쓰입니다">기간 마감 때 폐기량을 함께 집계해 다음 권장 발주량의 보정 계수를 계산합니다.</Alert>}

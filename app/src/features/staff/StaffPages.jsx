@@ -3,6 +3,8 @@ import { Alert, Badge, Button, Field, Icon, Modal, Segment, useToast } from '../
 import { DAYS, NEXT_DATES, NEXT_RANGE, SHIFTS, THIS_DATES, TODAY, ME_STAFF_ID, staffById, MY_SHIFTS_DONE } from '../../mocks/data.js';
 import { cellKey, fmtRange, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
+import { submitShortageReport } from '../../lib/alerts.js';
+import { DEV_USER_ID } from '../../lib/devUser.js';
 
 const ME = staffById[ME_STAFF_ID];
 // 이번 주 확정 근무 (정윤수)
@@ -202,18 +204,26 @@ export function StaffPay() {
 
 /* 4-4 · 부족 직접 신고 */
 export function StaffReport() {
-  const { inventory, reports, setReports, notify } = useApp();
+  const { inventory, inventorySource, reports, reloadReports } = useApp();
   const toast = useToast();
+  const [saving, setSaving] = useState(false);
   const [sel, setSel] = useState(null);
   const [note, setNote] = useState('');
   const [err, setErr] = useState('');
-  const submit = () => {
+  const submit = async () => {
     if (!sel) { setErr('부족한 재료를 하나 고르세요.'); document.getElementById('rp-first')?.focus(); return; }
+    if (inventorySource !== 'db') { toast('DB에 연결되지 않아 신고할 수 없습니다.'); return; }
     const it = inventory.find((i) => i.id === sel);
-    setReports((r) => [{ id: `r${Date.now()}`, ingredientId: sel, by: ME.name, at: '방금', note: note.trim() }, ...r]);
-    notify(`${ME.name} 님이 ${it.name} 부족을 신고했습니다`);
-    toast(`${it.name} 부족을 점주·매니저에게 알렸습니다.`);
-    setSel(null); setNote(''); setErr('');
+    setSaving(true);
+    try {
+      // 신고 저장과 점주·매니저 알림은 DB 함수가 한 번에 처리한다.
+      await submitShortageReport({ ingredientId: it.ingredientId, reporterId: DEV_USER_ID.staff, memo: note.trim() });
+      await reloadReports();
+      toast(`${it.name} 부족을 점주·매니저에게 알렸습니다.`);
+      setSel(null); setNote(''); setErr('');
+    } catch (e) {
+      toast(`신고하지 못했습니다. ${e.message}`);
+    } finally { setSaving(false); }
   };
   const mine = reports.filter((r) => r.by === ME.name);
   return (
@@ -239,7 +249,7 @@ export function StaffReport() {
           <textarea id="rp-note" className="textarea" value={note} maxLength={100} onChange={(e) => setNote(e.target.value)} aria-describedby="rp-note-help" />
         </Field>
       </section>
-      <Button size="lg" block icon="flag" onClick={submit}>부족 신고하기</Button>
+      <Button size="lg" block icon="flag" onClick={submit} disabled={saving}>{saving ? '보내는 중…' : '부족 신고하기'}</Button>
       {mine.length > 0 && (
         <section className="card" aria-label="내 신고">
           <strong style={{ display: 'block', marginBottom: 4 }}>내가 보낸 신고</strong>

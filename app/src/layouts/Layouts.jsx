@@ -5,7 +5,6 @@ import { useApp } from '../state/AppState.jsx';
 import { useAuth } from '../lib/auth.jsx';
 import { STORE } from '../mocks/data.js';
 import { STAFF_TABS } from './nav.js';
-import { devUserIdFor } from '../lib/devUser.js';
 
 // 로그아웃 — 세션을 끊고 로그인 화면으로 (예시 모드에서는 이동만)
 function useLogout() {
@@ -59,14 +58,14 @@ function SideNav({ base, nav, onNavigate }) {
 
 /* 점주·매니저 공통 셸 — 데스크톱 사이드바, 1023px 이하 서랍 */
 export function AdminLayout({ base, nav, user: demoUser }) {
-  const { account } = useAuth();
+  const { account, demo } = useAuth();
   const user = account || demoUser;
   const storeName = account?.storeName || STORE.name;
   const logout = useLogout();
   const [drawer, setDrawer] = useState(false);
   const { loadAlerts } = useApp();
-  const accountId = account?.id;
-  useEffect(() => { loadAlerts(accountId ?? devUserIdFor(base)); }, [base, accountId, loadAlerts]); // 4-5
+  const accountId = account && !demo ? account.id : null;
+  useEffect(() => { if (accountId) loadAlerts(accountId); }, [accountId, loadAlerts]); // 4-5 로그인한 사용자의 알림
   const pathname = useScrollTop();
   const current = nav.flatMap((g) => g.items.map((it) => ({ ...it, group: g })))
     .find((it) => (it.path ? `${base}/${it.path}` : base) === pathname);

@@ -2,8 +2,29 @@
 -- 기대 1) 시드 재현: calculate_payroll('2026-10-05') 가 시드 급여와 같음 (정윤수 186,379원 · 장윤서 61,920원)
 -- 기대 2) 판정: 예정 17:00~22:00 에 17:07 출근 → 지각, 21:30 퇴근 → 조퇴, 둘 다 → 지각·조퇴, 정시 → 정상. 근무시간 소수 둘째 자리
 -- 기대 3) 퇴근 기록 시 그 주 급여 자동 갱신 + 본인 알림. 주 15시간 이상이면 주휴수당(기본급 ÷ 5)
--- 기대 4) anon 으로 출근 → 퇴근 가능, 퇴근 전 재출근·출근 없는 퇴근은 오류
+-- 기대 4) 로그인한 직원 본인으로 출근 → 퇴근 가능, 퇴근 전 재출근·출근 없는 퇴근은 오류
 begin;
+
+-- ── 로그인 시뮬레이션 도우미 (이 트랜잭션 안에서만 존재). 원격에는 Auth 사용자 4명이 있어야 한다 ──
+create schema _t;
+grant usage on schema _t to public;
+create table _t.uid (email text primary key, id uuid not null);
+grant select on _t.uid to public;
+insert into auth.users (email, email_confirmed_at)
+select e, now() from unnest(array['owner@example.com','jang@example.com','jung@example.com','park@example.com']) e
+ where not exists (select 1 from auth.users a where lower(a.email) = e);
+insert into _t.uid select lower(email), id from auth.users
+ where lower(email) in ('owner@example.com','jang@example.com','jung@example.com','park@example.com');
+create function _t.as_user(p_email text) returns void language plpgsql as $$
+declare v uuid;
+begin
+  execute 'reset role';
+  select id into v from _t.uid where email = p_email;
+  if v is null then raise exception '테스트 사용자 없음: %', p_email; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+end $$;
+grant execute on all functions in schema _t to public;
 
 -- 1) 시드 재현
 select calculate_payroll('2026-10-05') as users;
@@ -38,8 +59,8 @@ select total_hours, base_pay, is_holiday_pay_target, holiday_pay, total_pay from
 select count(*) as noti_after from notification where recipient_id = 3;
 select content from notification where recipient_id = 3 and type = '급여 갱신' order by notification_id desc limit 1;
 
--- 4) anon 출퇴근 (예정 없는 출근)
-set local role anon;
+-- 4) 로그인한 직원(park = user 4)의 출퇴근 (예정 없는 출근)
+select _t.as_user('park@example.com');
 select clock_in(4) as attendance_id \gset
 do $$ begin
   perform clock_in(4);

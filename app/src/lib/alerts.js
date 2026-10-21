@@ -41,14 +41,14 @@ export async function fetchReports() {
 export async function fetchNotifications(userId) {
   const { data, error } = await db()
     .from('notification')
-    .select('notification_id, source, content, sent_at, is_read')
+    .select('notification_id, type, source, content, sent_at, is_read')
     .eq('recipient_id', userId)
     .order('sent_at', { ascending: false })
     .limit(50);
   if (error) throw error;
   return data.map((n) => ({
     id: `n${n.notification_id}`,
-    kind: n.source === '수동 신고' ? 'report' : 'stock',
+    kind: n.type === '입고 완료' ? 'order' : n.source === '수동 신고' ? 'report' : 'stock',
     title: n.content,
     at: fmtAt(n.sent_at),
     read: n.is_read,

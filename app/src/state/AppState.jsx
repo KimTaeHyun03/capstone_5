@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { INGREDIENTS, ORDERS, SHORTAGE_REPORTS, NOTIFICATIONS, STAFF, MENUS } from '../mocks/data.js';
 import { fetchInventory } from '../lib/inventory.js';
 import { fetchReports, fetchNotifications } from '../lib/alerts.js';
+import { fetchOrders, fetchRecommendations } from '../lib/orders.js';
 
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
@@ -21,6 +22,16 @@ export function AppStateProvider({ children }) {
     .catch((e) => console.warn('재고 조회 실패, 예시 데이터 사용:', e.message)), []);
   useEffect(() => { reloadInventory(); }, [reloadInventory]);
   const [orders, setOrders] = useState(ORDERS);
+  const reloadOrders = useCallback(() => fetchOrders()
+    .then(setOrders)
+    .catch((e) => console.warn('발주 조회 실패, 예시 데이터 사용:', e.message)), []);
+  useEffect(() => { reloadOrders(); }, [reloadOrders]);
+  const [recs, setRecs] = useState({}); // 재료별 최신 권장 발주량(5-1). 비어 있으면 화면이 예시 계산을 쓴다.
+  const [recsLoaded, setRecsLoaded] = useState(false);
+  const reloadRecs = useCallback(() => fetchRecommendations()
+    .then((r) => { setRecs(r); setRecsLoaded(true); })
+    .catch((e) => console.warn('권장 발주량 조회 실패, 예시 계산 사용:', e.message)), []);
+  useEffect(() => { reloadRecs(); }, [reloadRecs]);
   const [reports, setReports] = useState(SHORTAGE_REPORTS);
   const [notifications, setNotifications] = useState(NOTIFICATIONS);
   const reloadReports = useCallback(() => fetchReports()
@@ -53,7 +64,7 @@ export function AppStateProvider({ children }) {
 
   const value = {
     schedState, setSchedState, assign, setAssign, edited, setEdited,
-    inventory, setInventory, inventorySource, lowStock, orders, setOrders,
+    inventory, setInventory, inventorySource, lowStock, orders, reloadOrders, recs, recsLoaded, reloadRecs,
     reports, setReports, reloadInventory, reloadReports, loadAlerts, notifications, setNotifications, unread, notify,
     staff, setStaff, menus, setMenus, clock, setClock,
     myAvail, setMyAvail, availSubmitted, setAvailSubmitted,

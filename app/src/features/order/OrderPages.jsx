@@ -1,20 +1,41 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, EmptyState, Modal, PageHead, Panel, SampleTag, StatCard, useToast } from '../../components/ui/index.jsx';
 import { coefficient, recommendQty, won } from '../../domain/index.js';
-import { FORECAST_ERRORS, TODAY } from '../../mocks/data.js';
+import { FORECAST_ERRORS } from '../../mocks/data.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useRolePath } from '../../layouts/Layouts.jsx';
 import { useNavigate } from 'react-router-dom';
+import { calculateRecommendations, nextMonday, placeOrder, receiveOrder } from '../../lib/orders.js';
+import { DEV_USER_ID } from '../../lib/devUser.js';
 
 /* 5-1 · 5-2 · 권장 발주량 확인·발주 등록 (점주) */
 export function RecommendPage() {
-  const { inventory, setOrders, notify } = useApp();
+  const { inventory, inventorySource, recs, recsLoaded, reloadRecs, reloadOrders } = useApp();
   const toast = useToast();
   const nav = useNavigate();
-  const init = () => Object.fromEntries(inventory.map((it) => [it.id, String(recommendQty(it))]));
+  // DB 에 저장된 권장 발주량(5-E1)이 있으면 그것을, 없으면 화면 내 예시 계산을 쓴다.
+  const recOf = (it) => recs[it.id]?.rec ?? recommendQty(it);
+  const init = () => Object.fromEntries(inventory.map((it) => [it.id, String(recOf(it))]));
   const [qty, setQty] = useState(init);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [calculating, setCalculating] = useState(false);
+  const recSig = JSON.stringify(Object.values(recs).map((r) => r.recommendationId));
+  useEffect(() => { setQty(init()); setErrors({}); }, [recSig, inventory]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const recalc = async () => {
+    setCalculating(true);
+    try { await calculateRecommendations(); await reloadRecs(); toast('현재 재고로 권장 발주량을 다시 계산했습니다.'); }
+    catch (e) { toast(`계산하지 못했습니다. ${e.message}`); }
+    finally { setCalculating(false); }
+  };
+  // 다음 주 기준 권장량이 아직 없으면 처음 한 번 자동 계산한다.
+  const autoCalc = useRef(false);
+  useEffect(() => {
+    if (inventorySource !== 'db' || !recsLoaded || autoCalc.current) return;
+    const latest = Object.values(recs).map((r) => r.periodStart).sort().pop();
+    if (!latest || latest < nextMonday()) { autoCalc.current = true; recalc(); }
+  }, [inventorySource, recsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const validate = (it, raw) => {
     if (raw === '' || Number.isNaN(Number(raw))) return '숫자를 입력하세요.';
@@ -23,32 +44,38 @@ export function RecommendPage() {
     if (n % it.orderUnit !== 0) return `발주 단위 ${it.orderUnit}${it.unit}의 배수로 입력하세요.`;
     return '';
   };
-  const lines = inventory.map((it) => ({ it, rec: recommendQty(it), n: Number(qty[it.id]) || 0 }));
+  const lines = inventory.map((it0) => {
+    const r = recs[it0.id];
+    const it = r ? { ...it0, use: r.use, factor: r.factor } : it0;
+    return { it, rec: recOf(it0), recId: r?.recommendationId ?? null, n: Number(qty[it0.id]) || 0 };
+  });
   const total = lines.reduce((a, l) => a + l.n * l.it.price, 0);
   const count = lines.filter((l) => l.n > 0).length;
   const badList = inventory.filter((it) => errors[it.id]);
 
-  const submit = () => {
+  const submit = async () => {
     const errs = Object.fromEntries(inventory.map((it) => [it.id, validate(it, qty[it.id])]));
     setErrors(errs);
     const bad = inventory.filter((it) => errs[it.id]);
     if (bad.length) { document.getElementById(`qty-${bad[0].id}`)?.focus(); return; }
+    if (inventorySource !== 'db') { toast('DB에 연결되지 않아 발주를 저장할 수 없습니다.'); return; }
     setSubmitting(true);
-    setTimeout(() => {
-      const id = `PO-${1021 + Math.floor(Math.random() * 8)}`;
-      setOrders((o) => [{ id, date: TODAY.label, status: '대기', lines: lines.filter((l) => l.n > 0).map((l) => ({ id: l.it.id, qty: l.n })) }, ...o]);
-      notify(`${id} 발주가 등록됐습니다 (입고 대기)`);
+    try {
+      // 발주는 '대기'로 저장된다. 권장량과 다르게 고친 품목은 DB가 조정 여부를 표시한다.
+      await placeOrder(DEV_USER_ID.owner, lines.filter((l) => l.n > 0).map((l) => ({ ingredientId: l.it.ingredientId, recommendationId: l.recId, qty: l.n })));
+      await reloadOrders();
       toast(`${count}개 품목, ${won(total)} 발주를 등록했습니다.`);
-      setSubmitting(false);
       nav('/owner/order/orders');
-    }, 600);
+    } catch (e) {
+      toast(`발주를 등록하지 못했습니다. ${e.message}`);
+    } finally { setSubmitting(false); }
   };
 
   return (
     <>
       <PageHead eyebrow="발주 관리 · 5-1 · 5-2" title="권장 발주" desc="다음 주 예상 소진량과 보정 계수로 계산한 권장량입니다. 수량을 고친 뒤 발주를 등록하세요." />
       <div className="stack-lg">
-        <Alert tone="info" title="권장 발주량 = 예상 소진량 × 보정 계수 − 현재 재고">발주 단위로 올림한 값입니다. 보정 계수는 최근 3주 예측 오차로 계산했습니다.</Alert>
+        <Alert tone="info" title="권장 발주량 = 예상 소진량 × 보정 계수 − 현재 재고">발주 단위로 올림한 값입니다. 보정 계수는 최근 3주 예측 오차로 계산했습니다.{recsLoaded && Object.keys(recs).length > 0 && ` (계산 기준: ${new Date(Object.values(recs)[0].calculatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })})`}</Alert>
         {badList.length > 0 && (
           <div className="alert alert-danger" role="alert">
             <div className="alert-body">
@@ -59,7 +86,7 @@ export function RecommendPage() {
             </div>
           </div>
         )}
-        <Panel id="rc" title="재료별 권장 발주량" actions={<SampleTag />}>
+        <Panel id="rc" title="재료별 권장 발주량" actions={inventorySource === 'sample' ? <SampleTag /> : <Button variant="text" onClick={recalc} disabled={calculating}>{calculating ? '계산 중…' : '지금 재고로 다시 계산'}</Button>}>
           <div className="table-wrap" tabIndex={0} role="region" aria-label="권장 발주량 표">
             <table>
               <caption className="sr-only">재료별 권장 발주량과 예상 금액</caption>
@@ -128,7 +155,7 @@ function OrderTable({ orders, inventory, onReceive }) {
 
 /* 발주·입고 내역 (점주) */
 export function OrdersPage() {
-  const { orders, inventory } = useApp();
+  const { orders, inventory, inventorySource } = useApp();
   const p = useRolePath();
   const waiting = orders.filter((o) => o.status === '대기').length;
   return (
@@ -140,7 +167,7 @@ export function OrdersPage() {
           <StatCard label="이번 달 발주" value={orders.length} unit="건" />
           <StatCard label="이번 달 발주 금액" value={won(orders.reduce((a, o) => a + o.lines.reduce((s, l) => s + l.qty * inventory.find((i) => i.id === l.id).price, 0), 0))} />
         </div>
-        <Panel id="od" title="발주 내역" actions={<SampleTag />}><OrderTable orders={orders} inventory={inventory} /></Panel>
+        <Panel id="od" title="발주 내역" actions={inventorySource === 'sample' ? <SampleTag /> : null}><OrderTable orders={orders} inventory={inventory} /></Panel>
       </div>
     </>
   );
@@ -186,17 +213,24 @@ function ReceiveModal({ order, inventory, onClose, onConfirm }) {
 
 /* 5-3 · 입고 처리 (매니저) */
 export function ReceivePage() {
-  const { orders, setOrders, inventory, setInventory, notify } = useApp();
+  const { orders, inventory, inventorySource, reloadOrders, reloadInventory, loadAlerts } = useApp();
   const toast = useToast();
   const [target, setTarget] = useState(null);
   const waiting = orders.filter((o) => o.status === '대기');
   const done = orders.filter((o) => o.status !== '대기');
-  const onConfirm = (order, received) => {
-    setInventory((list) => list.map((i) => (received[i.id] ? { ...i, stock: +(i.stock + received[i.id]).toFixed(2) } : i)));
-    setOrders((list) => list.map((o) => (o.id === order.id ? { ...o, status: '입고완료' } : o)));
-    notify(`${order.id} 입고가 완료되어 재고에 반영됐습니다`);
-    toast(`${order.id} 입고를 완료했습니다.`);
-    setTarget(null);
+  const onConfirm = async (order, received) => {
+    if (inventorySource !== 'db') { toast('DB에 연결되지 않아 입고를 저장할 수 없습니다.'); return; }
+    try {
+      // 상태 전환·재고 가산·변동 기록은 DB(입고 트리거)가 처리한다. 발주량과 다르면 차이 사유를 남긴다.
+      await receiveOrder(DEV_USER_ID.manager, order.lines.map((l) => ({
+        orderId: l.orderId, receivedQty: received[l.id], diffReason: received[l.id] !== l.qty ? '수량 차이' : null,
+      })));
+      await Promise.all([reloadOrders(), reloadInventory(), loadAlerts()]);
+      toast(`${order.id} 입고를 완료했습니다.`);
+      setTarget(null);
+    } catch (e) {
+      toast(`입고 처리하지 못했습니다. ${e.message}`);
+    }
   };
   return (
     <>

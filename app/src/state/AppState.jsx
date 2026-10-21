@@ -5,6 +5,7 @@ import { INGREDIENTS, ORDERS, SHORTAGE_REPORTS, NOTIFICATIONS, STAFF, MENUS } fr
 import { fetchInventory } from '../lib/inventory.js';
 import { fetchReports, fetchNotifications } from '../lib/alerts.js';
 import { fetchOrders, fetchRecommendations } from '../lib/orders.js';
+import { fetchCorrection } from '../lib/correction.js';
 
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
@@ -26,6 +27,11 @@ export function AppStateProvider({ children }) {
     .then(setOrders)
     .catch((e) => console.warn('발주 조회 실패, 예시 데이터 사용:', e.message)), []);
   useEffect(() => { reloadOrders(); }, [reloadOrders]);
+  const [correction, setCorrection] = useState(null); // 6-1·6-2: { errors, coefs }. null 이면 화면이 예시 데이터를 쓴다.
+  const reloadCorrection = useCallback(() => fetchCorrection()
+    .then((c) => setCorrection(c.errors.length ? c : null))
+    .catch((e) => console.warn('오차 리포트 조회 실패, 예시 데이터 사용:', e.message)), []);
+  useEffect(() => { reloadCorrection(); }, [reloadCorrection]);
   const [recs, setRecs] = useState({}); // 재료별 최신 권장 발주량(5-1). 비어 있으면 화면이 예시 계산을 쓴다.
   const [recsLoaded, setRecsLoaded] = useState(false);
   const reloadRecs = useCallback(() => fetchRecommendations()
@@ -64,7 +70,7 @@ export function AppStateProvider({ children }) {
 
   const value = {
     schedState, setSchedState, assign, setAssign, edited, setEdited,
-    inventory, setInventory, inventorySource, lowStock, orders, reloadOrders, recs, recsLoaded, reloadRecs,
+    inventory, setInventory, inventorySource, lowStock, orders, reloadOrders, correction, reloadCorrection, recs, recsLoaded, reloadRecs,
     reports, setReports, reloadInventory, reloadReports, loadAlerts, notifications, setNotifications, unread, notify,
     staff, setStaff, menus, setMenus, clock, setClock,
     myAvail, setMyAvail, availSubmitted, setAvailSubmitted,

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, EmptyState, Modal, PageHead, Panel, SampleTag, StatCard, useToast } from '../../components/ui/index.jsx';
 import { coefficient, recommendQty, won } from '../../domain/index.js';
+import { runPeriodClose } from '../../lib/correction.js';
 import { FORECAST_ERRORS } from '../../mocks/data.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useRolePath } from '../../layouts/Layouts.jsx';
@@ -248,35 +249,54 @@ export function ReceivePage() {
 
 /* 6-1 · 6-2 · 오차·폐기 리포트, 보정 계수 반영 확인 (점주) */
 export function CorrectionPage() {
-  const { inventory } = useApp();
-  const ids = Object.keys(FORECAST_ERRORS[0].rows);
+  const { inventory, inventorySource, correction, reloadCorrection, loadAlerts } = useApp();
+  const toast = useToast();
+  const [closing, setClosing] = useState(false);
+  // DB 의 마감 기록이 있으면 그것을, 없으면 예시 데이터를 쓴다.
+  const errors = correction?.errors ?? FORECAST_ERRORS;
+  const fromDb = !!correction;
   const ing = (id) => inventory.find((i) => i.id === id);
-  const latest = FORECAST_ERRORS[FORECAST_ERRORS.length - 1];
+  const ids = Object.keys(errors[errors.length - 1].rows).filter((id) => ing(id));
+  const latest = errors[errors.length - 1];
+  const newCoef = (id) => correction?.coefs[id]?.value ?? coefficient(FORECAST_ERRORS, id);
   const totalWaste = ids.reduce((a, id) => a + latest.rows[id][2] * ing(id).price, 0);
-  const avgErr = ids.reduce((a, id) => a + Math.abs(latest.rows[id][1] - latest.rows[id][0]) / latest.rows[id][0], 0) / ids.length * 100;
+  const avgErr = ids.reduce((a, id) => a + (latest.rows[id][0] ? Math.abs(latest.rows[id][1] - latest.rows[id][0]) / latest.rows[id][0] : 0), 0) / (ids.length || 1) * 100;
+  const runClose = async () => {
+    setClosing(true);
+    try {
+      const r = await runPeriodClose();
+      await Promise.all([reloadCorrection(), loadAlerts()]);
+      toast(r.closed || r.coefficients ? `${r.period_start} 주 마감: 오차 ${r.closed}건, 보정 계수 ${r.coefficients}건을 만들었습니다.` : '이미 마감된 기간입니다.');
+    } catch (e) { toast(`마감하지 못했습니다. ${e.message}`); }
+    finally { setClosing(false); }
+  };
+  // 3기간 연속으로 실제가 예측보다 12% 이상 적은 재료
+  const overForecast = errors.length >= 3 ? ids.filter((id) => errors.slice(-3).every((e) => e.rows[id] && e.rows[id][0] > 0 && (e.rows[id][0] - e.rows[id][1]) / e.rows[id][0] >= 0.12)) : [];
   return (
     <>
-      <PageHead eyebrow="발주 관리 · 6-1 · 6-2" title="예측 오차 보정" desc="실제 소진량 = 기초 재고 + 입고 − 기말 재고. 예측과의 차이로 다음 발주의 보정 계수를 계산합니다." />
+      <PageHead eyebrow="발주 관리 · 6-1 · 6-2" title="예측 오차 보정" desc="실제 소진량 = 기초 재고 + 입고 − 기말 재고. 예측과의 차이로 다음 발주의 보정 계수를 계산합니다."
+        actions={inventorySource === 'db' ? <Button variant="secondary" onClick={runClose} disabled={closing}>{closing ? '마감 중…' : '지난주 마감 실행 (개발용)'}</Button> : null} />
       <div className="stack-lg">
         <div className="grid-3">
           <StatCard label="지난주 평균 오차율" value={`${avgErr.toFixed(1)}%`} sub={latest.period} />
           <StatCard label="지난주 폐기 금액" value={won(totalWaste)} sub="재고 변동 기록(폐기) 합계" />
-          <StatCard label="다음 발주 반영" value="새 계수" sub="10.25(일) 마감 후 자동 계산" />
+          <StatCard label="다음 발주 반영" value="새 계수" sub="매주 일요일 마감 후 자동 계산" />
         </div>
-        <Alert tone="info" title="크루아상 생지는 3주 연속 실제 소진이 예측보다 12% 이상 적었습니다">보정 계수를 낮춰 다음 권장량이 줄었습니다. 폐기량도 함께 줄어드는지 확인하세요.</Alert>
-        <Panel id="ce" title="재료별 예측 vs 실제 (최근 3주)" actions={<SampleTag />}>
+        {overForecast.length > 0 && <Alert tone="info" title={`${overForecast.map((id) => ing(id).name).join(', ')}은(는) 3주 연속 실제 소진이 예측보다 12% 이상 적었습니다`}>보정 계수를 낮춰 다음 권장량이 줄었습니다. 폐기량도 함께 줄어드는지 확인하세요.</Alert>}
+        <Panel id="ce" title="재료별 예측 vs 실제 (최근 3주)" actions={fromDb ? null : <SampleTag />}>
           <div className="table-wrap">
             <table>
-              <thead><tr><th scope="col">재료</th>{FORECAST_ERRORS.map((e) => <th key={e.period} scope="col" className="num">{e.period}<br /><span style={{ fontWeight: 400 }}>예측 / 실제 · 폐기</span></th>)}<th scope="col" className="num">새 보정 계수</th></tr></thead>
+              <thead><tr><th scope="col">재료</th>{errors.map((e) => <th key={e.period} scope="col" className="num">{e.period}<br /><span style={{ fontWeight: 400 }}>예측 / 실제 · 폐기</span></th>)}<th scope="col" className="num">새 보정 계수</th></tr></thead>
               <tbody>
                 {ids.map((id) => {
-                  const c = coefficient(FORECAST_ERRORS, id);
+                  const c = newCoef(id);
                   return (
                     <tr key={id}>
                       <th scope="row">{ing(id).name}</th>
-                      {FORECAST_ERRORS.map((e) => {
+                      {errors.map((e) => {
+                        if (!e.rows[id]) return <td key={e.period} className="num muted">—</td>;
                         const [f, a, w] = e.rows[id];
-                        const err = ((a - f) / f) * 100;
+                        const err = f ? ((a - f) / f) * 100 : 0;
                         return (
                           <td key={e.period} className="num">
                             {f} / {a}{ing(id).unit}<br />

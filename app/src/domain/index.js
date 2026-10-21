@@ -72,6 +72,21 @@ export function violations(assign) {
   return list;
 }
 
+// 2-4 · E4 — 경고를 달 배정 칸 목록 [{ k, id }] (shift_assignment.has_warning = true 대상)
+export function warningCells(assign) {
+  const hrs = hoursOf(assign);
+  const out = [];
+  Object.entries(assign).forEach(([k, ids]) => {
+    const [di, sid] = k.split('-');
+    const s = SHIFTS.find((x) => x.id === sid);
+    ids.forEach((id) => {
+      const st = STAFF.find((x) => x.id === id);
+      if (hrs[id] > st.maxHours || !canWork(st, Number(di), s)) out.push({ k, id });
+    });
+  });
+  return out;
+}
+
 // 5-1 · 권장 발주량 = 예상 소진량 × 보정 계수 − 현재 재고 (발주 단위 올림)
 export const recommendQty = (it) => {
   const raw = it.use * it.factor - it.stock;

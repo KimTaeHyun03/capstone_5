@@ -213,6 +213,77 @@ select _t.as_user('jung@example.com');
 do $$ begin assert _t.denied('select run_period_close()'), '시스템 호출 이후에도 알바생은 거부되어야 함'; end $$;
 select 'system calls: OK' as step;
 
+-- ── 6-2. 근무표 편집(scheduleRepo 가 테이블에 직접 쓰는 경로): 점주·매니저는 되고, 확정은 점주만, 알바생·비로그인은 안 된다 ──
+select _t.as_system();
+delete from work_schedule where target_week = '2026-12-07';
+create table _t.ctx (k text primary key, v bigint not null);
+grant select on _t.ctx to public;
+select _t.as_user('owner@example.com');
+do $$
+declare v_id bigint;
+begin
+  -- 점주: 초안 생성(work_schedule INSERT) → 배정 INSERT
+  insert into work_schedule (store_id, target_week, status, created_at, is_published) values (1, '2026-12-07', '초안', now(), false) returning schedule_id into v_id;
+  insert into shift_assignment (schedule_id, user_id, work_date, planned_start, planned_end, is_modified, has_warning)
+  values (v_id, 3, '2026-12-07', '17:00', '22:00', false, false);
+  assert (select count(*) from shift_assignment where schedule_id = v_id) = 1, '점주: 배정 INSERT 실패';
+end $$;
+select _t.as_system();
+insert into _t.ctx select 'sched', schedule_id from work_schedule where target_week = '2026-12-07';
+
+select _t.as_user('jang@example.com');
+do $$
+declare v_id bigint := (select v from _t.ctx where k = 'sched');
+begin
+  assert v_id is not null and exists (select 1 from work_schedule where schedule_id = v_id), '매니저가 초안 스케줄을 볼 수 없음';
+  -- 매니저: 검토 단계로 상태 변경, 배정 수정(교체)
+  assert _t.affected(format('update work_schedule set status = ''검토중'' where schedule_id = %s', v_id)) = 1, '매니저: 상태 변경(UPDATE) 실패';
+  assert _t.affected(format('delete from shift_assignment where schedule_id = %s', v_id)) = 1, '매니저: 배정 DELETE 실패';
+  insert into shift_assignment (schedule_id, user_id, work_date, planned_start, planned_end, is_modified, modified_by, has_warning)
+  values (v_id, 3, '2026-12-07', '12:00', '17:00', true, 2, false);
+  assert _t.affected(format('update work_schedule set status = ''초안'' where schedule_id = %s', v_id)) = 1, '매니저: 검토 완료(초안으로) 실패';
+  -- 확정·공개는 점주만 (RLS 는 값을 못 보므로 트리거가 막는다)
+  assert _t.denied(format('update work_schedule set status = ''확정'', is_published = true where schedule_id = %s', v_id)), '매니저가 근무표를 확정함';
+  assert _t.denied(format('update work_schedule set is_published = true where schedule_id = %s', v_id)), '매니저가 근무표를 공개함';
+end $$;
+
+select _t.as_user('owner@example.com');
+do $$
+declare v_id bigint := (select v from _t.ctx where k = 'sched');
+begin
+  assert _t.affected(format('update work_schedule set status = ''확정'', confirmed_by = 1, confirmed_at = now(), is_published = true, published_at = now() where schedule_id = %s', v_id)) = 1, '점주: 확정 실패';
+end $$;
+
+select _t.as_user('jang@example.com');
+do $$
+declare v_id bigint := (select v from _t.ctx where k = 'sched');
+begin
+  assert _t.denied(format('update work_schedule set status = ''초안'', is_published = false where schedule_id = %s', v_id)), '매니저가 확정된 근무표를 되돌림';
+end $$;
+
+select _t.as_user('owner@example.com');
+do $$
+declare v_id bigint := (select v from _t.ctx where k = 'sched');
+begin
+  assert _t.affected(format('update work_schedule set status = ''초안'', is_published = false, confirmed_by = null, confirmed_at = null, published_at = null where schedule_id = %s', v_id)) = 1, '점주: 다시 편집(되돌리기) 실패';
+end $$;
+
+select _t.as_user('jung@example.com');
+do $$
+declare v_id bigint := (select v from _t.ctx where k = 'sched');
+begin
+  assert _t.affected(format('update work_schedule set status = ''확정'' where schedule_id = %s', v_id)) = 0, '알바생이 스케줄 상태를 바꿈';
+  assert _t.denied(format('insert into shift_assignment (schedule_id, user_id, work_date, planned_start, planned_end, is_modified, has_warning) values (%s, 3, date ''2026-12-08'', time ''12:00'', time ''17:00'', false, false)', v_id)), '알바생이 배정을 추가함';
+  assert _t.affected('delete from shift_assignment') = 0, '알바생이 배정을 삭제함';
+end $$;
+select _t.as_anon();
+do $$
+begin
+  assert _t.denied('insert into work_schedule (store_id, target_week, status, created_at, is_published) values (1, date ''2026-12-14'', ''초안'', now(), false)'), 'anon 이 스케줄을 만듦';
+  assert _t.affected('delete from shift_assignment') = 0, 'anon 이 배정을 삭제함';
+end $$;
+select 'schedule edit paths: OK' as step;
+
 -- ── 7. anon 이 실행할 수 있는 public 함수는 하나도 없어야 한다 ─────────────────────
 select _t.as_system();
 do $$

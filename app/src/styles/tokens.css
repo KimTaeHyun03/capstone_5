@@ -1,0 +1,93 @@
+/* 디자인 토큰 — DESIGN-notion.md 기준. 색·글꼴·간격·모서리·그림자·모션은 여기서만 정의한다.
+   다른 톤으로 바꾸려면 이 파일만 교체하면 된다. */
+@font-face {
+  font-family: 'Pretendard GOV';
+  src: url('../assets/PretendardGOVVariable.woff2') format('woff2');
+  font-weight: 45 920;
+  font-display: swap;
+}
+
+:root {
+  /* 브랜드 — 구조 강조색은 파랑 하나 */
+  --primary: #0075de;
+  --primary-active: #005bab;
+  --primary-soft: #e8f2fc;
+  --primary-line: #b8d7f5;
+  --on-primary: #ffffff;
+  --secondary: #213183;
+
+  /* 바탕·면 */
+  --canvas: #ffffff;
+  --canvas-soft: #f6f5f4;
+  --surface: #ffffff;
+  --surface-hover: #f1f0ee;
+  --hairline: #e6e6e6;
+  --border-strong: #d3d1cd;
+
+  /* 글자 */
+  --ink: #1a1a1a;
+  --ink-secondary: #31302e;
+  --ink-muted: #615d59;
+  --ink-faint: #8a857f; /* 큰 글자·보조 표시 전용 (본문 금지) */
+
+  /* 상태 — Notion 스티커 팔레트에서 대비를 맞춰 진하게 뽑은 값 */
+  --success: #1aae39;
+  --success-text: #11702a;
+  --success-soft: #e7f6ea;
+  --warning: #dd5b00;
+  --warning-text: #793400;
+  --warning-soft: #fdf0e5;
+  --danger: #d1242f;
+  --danger-text: #a40e26;
+  --danger-soft: #fdecee;
+  --info-text: #005bab;
+  --info-soft: #e8f2fc;
+  --neutral-soft: #efeeec;
+
+  /* 히트맵 단계 (파랑 6단계) */
+  --hm-0: #f1f6fc;
+  --hm-1: #d6e7f8;
+  --hm-2: #b0d1f2;
+  --hm-3: #7db3e9;
+  --hm-4: #3d8fdf;
+  --hm-5: #0b65c2;
+
+  /* 글꼴 */
+  --font: 'Pretendard GOV', 'Pretendard', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --fs-display: clamp(28px, 1.6vw + 18px, 40px);
+  --fs-h1: 26px;
+  --fs-h2: 22px;
+  --fs-h3: 18px;
+  --fs-body: 16px;
+  --fs-sm: 15px;
+  --fs-caption: 14px;
+  --fs-eyebrow: 12px;
+  --lh: 1.5;
+  --ls-tight: -0.02em;
+
+  /* 간격 (8 기반) */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px;
+  --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px; --sp-16: 64px;
+
+  /* 모서리 */
+  --r-xs: 4px; --r-sm: 5px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-full: 9999px;
+
+  /* 그림자 — 거의 보이지 않는 여러 겹 */
+  --shadow-1: 0 0.175px 1.041px rgba(0,0,0,.01), 0 0.8px 2.925px rgba(0,0,0,.02), 0 2.025px 7.847px rgba(0,0,0,.027), 0 4px 18px rgba(0,0,0,.04);
+  --shadow-2: 0 1px 3px rgba(0,0,0,.01), 0 3px 9px rgba(0,0,0,.02), 0 7px 20px rgba(0,0,0,.025), 0 14px 34px rgba(0,0,0,.035), 0 23px 52px rgba(0,0,0,.05);
+  --scrim: rgba(15, 15, 15, 0.55);
+  --focus: 0 0 0 2px var(--canvas), 0 0 0 4px var(--primary);
+
+  /* 모션 */
+  --dur-fast: 150ms;
+  --dur: 220ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-in: cubic-bezier(.4, 0, 1, 1);
+
+  /* 레이아웃 */
+  --sidebar-w: 248px;
+  --topbar-h: 56px;
+  --content-max: 1200px;
+  --staff-max: 480px;
+}

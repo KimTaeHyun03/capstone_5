@@ -1,7 +1,8 @@
 /* 화면 간 공유 상태 (예시 데이터 기반). 역할이 달라도 같은 매장 데이터를 보므로 하나로 둔다.
    DB 연동 단계에서는 이 Provider 내부만 Supabase 조회·저장으로 바꾼다. */
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { INGREDIENTS, ORDERS, SHORTAGE_REPORTS, NOTIFICATIONS, STAFF, MENUS } from '../mocks/data.js';
+import { fetchInventory } from '../lib/inventory.js';
 
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
@@ -12,6 +13,14 @@ export function AppStateProvider({ children }) {
   const [assign, setAssign] = useState({});
   const [edited, setEdited] = useState([]);
   const [inventory, setInventory] = useState(INGREDIENTS);
+  const [inventorySource, setInventorySource] = useState('sample'); // 'db' | 'sample'
+  useEffect(() => { // 4-2: DB에서 읽고, 실패하면 예시 데이터를 유지한다
+    let alive = true;
+    fetchInventory()
+      .then((rows) => { if (alive) { setInventory(rows); setInventorySource('db'); } })
+      .catch((e) => console.warn('재고 조회 실패, 예시 데이터 사용:', e.message));
+    return () => { alive = false; };
+  }, []);
   const [orders, setOrders] = useState(ORDERS);
   const [reports, setReports] = useState(SHORTAGE_REPORTS);
   const [notifications, setNotifications] = useState(NOTIFICATIONS);
@@ -32,7 +41,7 @@ export function AppStateProvider({ children }) {
 
   const value = {
     schedState, setSchedState, assign, setAssign, edited, setEdited,
-    inventory, setInventory, lowStock, orders, setOrders,
+    inventory, setInventory, inventorySource, lowStock, orders, setOrders,
     reports, setReports, notifications, setNotifications, unread, notify,
     staff, setStaff, menus, setMenus, clock, setClock,
     myAvail, setMyAvail, availSubmitted, setAvailSubmitted,

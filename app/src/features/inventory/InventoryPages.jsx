@@ -8,7 +8,7 @@ const LEVEL = { low: ['red', '부족'], warn: ['orange', '주의'], ok: ['green'
 
 /* 4-2 · 재고 현황 (점주·매니저) */
 export function InventoryPage() {
-  const { inventory } = useApp();
+  const { inventory, inventorySource } = useApp();
   const [filter, setFilter] = useState('all');
   const base = useBase();
   const p = useRolePath();
@@ -24,7 +24,7 @@ export function InventoryPage() {
           <StatCard label="최소 보유량 미달" value={inventory.filter((i) => stockLevel(i) === 'low').length} unit="개" sub="부족 알림 발송됨" />
           <StatCard label="재고 금액" value={won(value)} sub="단가 기준" />
         </div>
-        <Panel id="inv" title="재료별 재고" actions={<SampleTag />}>
+        <Panel id="inv" title="재료별 재고" actions={inventorySource === 'sample' ? <SampleTag /> : null}>
           <div style={{ marginBottom: 16 }}>
             <Segment label="상태 필터" value={filter} onChange={setFilter} options={[{ value: 'all', label: '전체' }, { value: 'low', label: '부족' }, { value: 'warn', label: '주의' }, { value: 'ok', label: '충분' }]} />
           </div>

@@ -74,19 +74,29 @@ export function StaffSchedule() {
 
 /* 2-1 · 가능시간 등록·수정 */
 export function StaffAvailability() {
-  const { myAvail, setMyAvail, availSubmitted, setAvailSubmitted } = useApp();
+  const { myAvail, setMyAvail, myMaxHours, availSubmitted, submitMyAvail } = useApp();
   const toast = useToast();
-  const [maxH, setMaxH] = useState(String(ME.maxHours));
+  const [maxH, setMaxH] = useState(String(myMaxHours));
   const [err, setErr] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState('');
+  useEffect(() => setMaxH(String(myMaxHours)), [myMaxHours]); // DB에서 불러온 값 반영
   const toggle = (di, si) => setMyAvail((a) => ({ ...a, [di]: a[di].map((v, i) => (i === si ? (v ? 0 : 1) : v)) }));
   const hours = DAYS.reduce((a, _, di) => a + SHIFTS.reduce((s, sh, si) => s + (myAvail[di][si] ? sh.end - sh.start : 0), 0), 0);
   const check = (v) => (Number.isNaN(Number(v)) || v === '' ? '숫자를 입력하세요.' : Number(v) < 4 || Number(v) > 40 ? '4–40시간 사이로 입력하세요.' : '');
-  const submit = () => {
+  const submit = async () => {
     const e = check(maxH);
     setErr(e);
     if (e) { document.getElementById('maxh')?.focus(); return; }
-    setAvailSubmitted(true);
-    toast('다음 주 가능시간을 제출했습니다.');
+    setSaving(true); setSaveErr('');
+    try {
+      await submitMyAvail(Number(maxH));
+      toast('다음 주 가능시간을 제출했습니다.');
+    } catch (x) {
+      setSaveErr(x.message);
+    } finally {
+      setSaving(false);
+    }
   };
   return (
     <>
@@ -94,7 +104,8 @@ export function StaffAvailability() {
         <span className="hello-name">다음 주 언제 일할 수 있나요?</span>
         <span className="hello-sub">{NEXT_RANGE} · 금요일 18시까지 제출</span>
       </div>
-      {availSubmitted && <Alert tone="success" title="제출 완료">마감 전까지 언제든 고쳐서 다시 제출할 수 있어요.</Alert>}
+      {saveErr && <Alert tone="danger" title="제출하지 못했습니다" live>{saveErr}</Alert>}
+      {availSubmitted && !saveErr && <Alert tone="success" title="제출 완료">마감 전까지 언제든 고쳐서 다시 제출할 수 있어요.</Alert>}
       <section className="card" aria-label="요일별 가능 시프트">
         <div className="toggle-grid" role="group" aria-label="가능 시프트 선택">
           <span />
@@ -120,7 +131,7 @@ export function StaffAvailability() {
           </div>
         </Field>
       </section>
-      <Button size="lg" block icon="check" onClick={submit} disabled={hours === 0}>{availSubmitted ? '수정해서 다시 제출' : '가능시간 제출'}</Button>
+      <Button size="lg" block icon="check" onClick={submit} disabled={hours === 0 || saving}>{saving ? '제출 중…' : availSubmitted ? '수정해서 다시 제출' : '가능시간 제출'}</Button>
     </>
   );
 }

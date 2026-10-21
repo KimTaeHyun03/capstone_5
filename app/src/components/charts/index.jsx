@@ -42,18 +42,21 @@ export function Heatmap({ data, caption }) {
   );
 }
 
-/* 1-3 · 다음 주 시간대별 예측 + 필요 인원 */
-export function ForecastBars({ initialDay = 5 }) {
+/* 1-3 · 다음 주 시간대별 예측 + 필요 인원
+   forecast = { matrix(천원), staff(명), dates } — 비우면 예시 데이터 */
+const DEMO_FORECAST = { matrix: FORECAST, staff: FORECAST.map((r) => r.map(needStaff)), dates: NEXT_DATES };
+export function ForecastBars({ forecast = DEMO_FORECAST, initialDay = 5 }) {
   const [day, setDay] = useState(initialDay);
-  const row = FORECAST[day];
-  const max = Math.max(...FORECAST.flat());
+  const row = forecast.matrix[day];
+  const staff = forecast.staff[day];
+  const max = Math.max(...forecast.matrix.flat()) || 1;
   const peak = Math.max(...row);
   const total = row.reduce((a, b) => a + b, 0);
   return (
     <div>
       <div className="od-cluster" style={{ '--od-gap': '12px' }}>
         <Segment label="요일 선택" value={day} onChange={setDay} options={DAYS.map((d, i) => ({ value: i, label: d }))} />
-        <span className="panel-meta push">{NEXT_DATES[day]}({DAYS[day]}) · 합계 <strong className="od-nowrap">{man(total)}만원</strong></span>
+        <span className="panel-meta push">{forecast.dates[day]}({DAYS[day]}) · 합계 <strong className="od-nowrap">{man(total)}만원</strong></span>
       </div>
       <div className="bars" aria-hidden="true">
         {row.map((v, i) => (
@@ -65,13 +68,13 @@ export function ForecastBars({ initialDay = 5 }) {
         ))}
       </div>
       <div className="staff-row" aria-hidden="true">
-        {row.map((v, i) => <span key={i} className="staff-dot">{needStaff(v)}</span>)}
+        {staff.map((n, i) => <span key={i} className="staff-dot">{n}</span>)}
       </div>
       <p className="help" style={{ marginTop: 8 }}>막대 = 예측 매출(천원), 아래 숫자 = 필요 인원(명) · 파란 막대 = 그날 피크</p>
       <table className="sr-only">
         <caption>{DAYS[day]}요일 시간대별 예측 매출과 필요 인원</caption>
         <thead><tr><th>시간</th><th>예측 매출(천원)</th><th>필요 인원</th></tr></thead>
-        <tbody>{row.map((v, i) => <tr key={i}><td>{HOURS[i]}시</td><td>{v}</td><td>{needStaff(v)}</td></tr>)}</tbody>
+        <tbody>{row.map((v, i) => <tr key={i}><td>{HOURS[i]}시</td><td>{v}</td><td>{staff[i]}</td></tr>)}</tbody>
       </table>
     </div>
   );

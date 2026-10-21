@@ -202,6 +202,14 @@ body:has(.staff-app) .toast-region { bottom: calc(80px + env(safe-area-inset-bot
 .role-go { display: inline-flex; align-items: center; gap: 4px; color: var(--primary); font-weight: 600; font-size: var(--fs-sm); margin-top: var(--sp-2); }
 .role-go .od-icon { --od-icon-size: 16px; }
 .entry-foot { font-size: var(--fs-caption); color: var(--ink-muted); }
+.login-card { display: grid; gap: var(--sp-4); width: min(400px, 100%); padding: var(--sp-6); background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); }
+.login-title { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-h3); font-weight: 700; }
+.login-row { display: flex; flex-wrap: wrap; gap: var(--sp-4); align-items: flex-start; }
+.login-demo { background: var(--canvas-soft); }
+.demo-accounts { display: grid; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; font-size: var(--fs-sm); }
+.demo-accounts li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--sp-2); }
+.demo-accounts code { color: var(--ink-secondary); }
+.auth-loading { padding: var(--sp-8) var(--sp-4); color: var(--ink-muted); font-size: var(--fs-sm); text-align: center; }
 
 /* ===== 점주·매니저 셸 ===== */
 .shell { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100dvh; }

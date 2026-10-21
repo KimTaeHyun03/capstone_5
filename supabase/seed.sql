@@ -1,7 +1,7 @@
 -- =====================================================================
 -- 5조 시드 데이터 — 카페 "카페 온기" 예시 데이터 (index.html 의 예시 값과 동일)
--- 실행: 20261014000000_init_22_tables.sql 실행 후 SQL Editor 에서 실행
--- 모두 가짜 예시이며 비밀번호 해시도 더미다. 판매 기록의 실제 출처(POS 연동 여부)는 미정이다.
+-- 실행: migrations/ 의 파일을 모두 실행한 뒤 SQL Editor 에서 실행
+-- 모두 가짜 예시다. login_id 는 로그인 이메일이며, 같은 이메일로 Supabase Auth 사용자를 만들면 자동 연결된다. 판매 기록의 실제 출처(POS 연동 여부)는 미정이다.
 -- 요일 값: 0=월 … 6=일 / 시간대 값: 시작 시(8~21)
 -- =====================================================================
 
@@ -9,13 +9,13 @@ insert into store (store_id, store_name, address, phone, open_time, close_time, 
   (1, '카페 온기', '서울특별시 예시구 예시로 12', '02-000-0000', '08:00', '22:00', '없음');
 
 insert into user_account (user_id, store_id, login_id, password_hash, name, role, hourly_wage, max_weekly_hours, preferred_weekly_hours, phone, status) values
-  (1, 1, 'owner', 'DUMMY-NOT-A-REAL-HASH', '김찬영', '점주', 10320, null, null, '010-0000-0001', '활성'),
-  (2, 1, 'jang', 'DUMMY-NOT-A-REAL-HASH', '장윤서', '매니저', 10320, 30, 30, '010-0000-0002', '활성'),
-  (3, 1, 'jung', 'DUMMY-NOT-A-REAL-HASH', '정윤수', '알바생', 10320, 20, 20, '010-0000-0003', '활성'),
-  (4, 1, 'park', 'DUMMY-NOT-A-REAL-HASH', '박서진', '알바생', 10320, 20, 20, '010-0000-0004', '활성'),
-  (5, 1, 'lee', 'DUMMY-NOT-A-REAL-HASH', '이도현', '알바생', 10320, 20, 20, '010-0000-0005', '활성'),
-  (6, 1, 'choi', 'DUMMY-NOT-A-REAL-HASH', '최하은', '알바생', 10320, 16, 16, '010-0000-0006', '활성'),
-  (7, 1, 'han', 'DUMMY-NOT-A-REAL-HASH', '한지우', '알바생', 10320, 24, 24, '010-0000-0007', '활성');
+  (1, 1, 'owner@example.com', null, '김찬영', '점주', 10320, null, null, '010-0000-0001', '활성'),
+  (2, 1, 'jang@example.com', null, '장윤서', '매니저', 10320, 30, 30, '010-0000-0002', '활성'),
+  (3, 1, 'jung@example.com', null, '정윤수', '알바생', 10320, 20, 20, '010-0000-0003', '활성'),
+  (4, 1, 'park@example.com', null, '박서진', '알바생', 10320, 20, 20, '010-0000-0004', '활성'),
+  (5, 1, 'lee@example.com', null, '이도현', '알바생', 10320, 20, 20, '010-0000-0005', '활성'),
+  (6, 1, 'choi@example.com', null, '최하은', '알바생', 10320, 16, 16, '010-0000-0006', '활성'),
+  (7, 1, 'han@example.com', null, '한지우', '알바생', 10320, 24, 24, '010-0000-0007', '활성');
 
 insert into ingredient (ingredient_id, store_id, ingredient_name, use_unit, order_unit, conversion_rate, unit_price, min_stock) values
   (1, 1, '원두', 'kg', 'kg', 1, 28000, 5),

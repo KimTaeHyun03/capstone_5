@@ -1,9 +1,17 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Icon, IconButton } from '../components/ui/index.jsx';
 import { useApp } from '../state/AppState.jsx';
+import { useAuth } from '../lib/auth.jsx';
 import { STORE } from '../mocks/data.js';
 import { STAFF_TABS } from './nav.js';
+
+// 로그아웃 — 세션을 끊고 로그인 화면으로 (예시 모드에서는 이동만)
+function useLogout() {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+  return async () => { await signOut(); navigate('/', { replace: true }); };
+}
 
 // 역할 루트 경로 — 같은 페이지 컴포넌트를 점주·매니저가 함께 쓸 때 링크를 맞춘다
 const BaseCtx = createContext('/owner');
@@ -49,8 +57,15 @@ function SideNav({ base, nav, onNavigate }) {
 }
 
 /* 점주·매니저 공통 셸 — 데스크톱 사이드바, 1023px 이하 서랍 */
-export function AdminLayout({ base, nav, user }) {
+export function AdminLayout({ base, nav, user: demoUser }) {
+  const { account, demo } = useAuth();
+  const user = account || demoUser;
+  const storeName = account?.storeName || STORE.name;
+  const logout = useLogout();
   const [drawer, setDrawer] = useState(false);
+  const { loadAlerts } = useApp();
+  const accountId = account && !demo ? account.id : null;
+  useEffect(() => { if (accountId) loadAlerts(accountId); }, [accountId, loadAlerts]); // 4-5 로그인한 사용자의 알림
   const pathname = useScrollTop();
   const current = nav.flatMap((g) => g.items.map((it) => ({ ...it, group: g })))
     .find((it) => (it.path ? `${base}/${it.path}` : base) === pathname);
@@ -79,12 +94,12 @@ export function AdminLayout({ base, nav, user }) {
             <span className="avatar" aria-hidden="true">{user.name.slice(1)}</span>
             <div className="store-chip-text">
               <span className="store-chip-name">{user.name}</span>
-              <span className="store-chip-role">{STORE.name} · {user.role}</span>
+              <span className="store-chip-role">{storeName} · {user.role}</span>
             </div>
           </div>
           <SideNav base={base} nav={nav} onNavigate={() => setDrawer(false)} />
           <div className="sidebar-foot">
-            <Link className="nav-link" to="/" style={{ paddingLeft: 8 }}><Icon name="logout" size="sm" /><span className="nav-link-label">로그아웃</span></Link>
+            <button type="button" className="nav-link" onClick={logout} style={{ paddingLeft: 8, width: '100%', background: 'none', border: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}><Icon name="logout" size="sm" /><span className="nav-link-label">로그아웃</span></button>
           </div>
         </aside>
         <div className="main">
@@ -115,6 +130,7 @@ function NotifBell({ base }) {
 
 /* 알바생 모바일 셸 — 최대 480px 열, 하단 탭 5개 */
 export function StaffLayout() {
+  const logout = useLogout();
   const pathname = useScrollTop();
   const tab = STAFF_TABS.find((t) => (t.path ? `/staff/${t.path}` : '/staff') === pathname) || STAFF_TABS[0];
   useEffect(() => { document.title = `${tab.label} · 카페 온기`; }, [tab]);
@@ -124,7 +140,7 @@ export function StaffLayout() {
         <div className="staff-col">
           <header className="staff-top">
             <h1 className="staff-top-title">{tab.label}</h1>
-            <Link className="btn btn-ghost btn-icon" to="/" aria-label="로그아웃"><Icon name="logout" size="md" /></Link>
+            <IconButton icon="logout" label="로그아웃" onClick={logout} />
           </header>
           <main className="staff-body" key={pathname}>
             <Outlet />
@@ -145,3 +161,4 @@ export function StaffLayout() {
     </BaseCtx.Provider>
   );
 }
+

@@ -2,6 +2,7 @@
 export const OWNER_NAV = [
   { id: 'home', label: '홈', icon: 'dashboard', items: [{ path: '', label: '대시보드' }] },
   { id: 'sales', label: '매출 분석', icon: 'chart', items: [
+    { path: 'sales/records', label: '판매 기록', proc: '1-1' },
     { path: 'sales/status', label: '매출 현황', proc: '1-2' },
     { path: 'sales/forecast', label: '매출 예측', proc: '1-3' },
   ] },
@@ -29,6 +30,7 @@ export const OWNER_NAV = [
 export const MANAGER_NAV = [
   { id: 'home', label: '홈', icon: 'dashboard', items: [{ path: '', label: '오늘 할 일' }] },
   { id: 'work', label: '근무 관리', icon: 'calendar', items: [
+    { path: 'my-availability', label: '내 가능시간 등록', proc: '2-1' },
     { path: 'availability', label: '가능시간 현황', proc: '2-2' },
     { path: 'schedule', label: '초안 검토·수정', proc: '2-4' },
   ] },

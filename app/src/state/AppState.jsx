@@ -12,6 +12,7 @@ import { fetchInventory } from '../lib/inventory.js';
 import { fetchReports, fetchNotifications } from '../lib/alerts.js';
 import { fetchOrders, fetchRecommendations } from '../lib/orders.js';
 import { fetchCorrection } from '../lib/correction.js';
+import { useOperations } from './useOperations.js';
 
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
@@ -22,6 +23,7 @@ const SHIFT_ARGS = SHIFTS.map(({ id, start, end }) => ({ id, start, end }));
 const ME_DB_ID = staffById[ME_STAFF_ID].dbId; // TODO(0단계): 로그인 사용자로 교체
 
 export function AppStateProvider({ children }) {
+  const ops = useOperations();
   // work_schedule.status: none | draft | review | published
   const [schedState, setSchedState] = useState('none');
   const [assign, setAssign] = useState({});
@@ -179,6 +181,7 @@ export function AppStateProvider({ children }) {
   const unread = notifications.filter((n) => !n.read).length;
 
   const value = {
+    ops,
     schedState, setSchedState, assign, setAssign, need, edited, setEdited,
     generateSchedule, editScheduleCell, changeScheduleState,
     inventory, setInventory, inventorySource, lowStock, orders, reloadOrders, correction, reloadCorrection, recs, recsLoaded, reloadRecs,

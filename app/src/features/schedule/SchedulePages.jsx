@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, Badge, Button, EmptyState, Modal, PageHead, Panel, SampleTag, useToast } from '../../components/ui/index.jsx';
-import { DAYS, NEXT_DATES, NEXT_RANGE, SHIFTS, STAFF, staffById } from '../../mocks/data.js';
+import { DAYS, NEXT_DATES, NEXT_RANGE, OWNER, SHIFTS, STAFF, staffById } from '../../mocks/data.js';
 import { NEED, canWork, cellKey, fmtRange, generateDraft, hoursOf, shiftHours, shortCells, supportCount, violations } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useRolePath } from '../../layouts/Layouts.jsx';
@@ -151,6 +151,9 @@ function WeeklyHours({ assign }) {
   );
 }
 
+// DB 저장 실패 시 안내 (화면 상태는 AppState 가 DB 값으로 되돌린다)
+const saveFailed = (toast) => (e) => toast(`저장하지 못했습니다: ${e.message ?? e}`);
+
 const STEPS = [['draft', '초안 생성'], ['review', '매니저 검토'], ['published', '확정·공개']];
 function Steps({ state }) {
   const idx = state === 'none' ? -1 : STEPS.findIndex(([s]) => s === state);
@@ -167,8 +170,9 @@ function Steps({ state }) {
 
 /* 2-3 · 2-5 · 스케줄 초안 자동 생성·확정 (점주) */
 export function SchedulePage() {
-  const { schedState: state, setSchedState: setState, assign, setAssign, edited, setEdited, notify } = useApp();
+  const { schedState: state, assign, edited, notify, saveScheduleDraft, editScheduleCell, changeScheduleState } = useApp();
   const toast = useToast();
+  const fail = saveFailed(toast);
   const p = useRolePath();
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -180,16 +184,22 @@ export function SchedulePage() {
   const generate = () => {
     setLoading(true);
     setTimeout(() => {
-      setAssign(generateDraft()); setEdited([]); setState('draft'); setLoading(false);
+      saveScheduleDraft(generateDraft()).catch(fail); setLoading(false);
       toast('예측 매출과 가능시간으로 스케줄 초안을 만들었습니다.');
     }, 900);
   };
-  const saveCell = (k, ids) => { setAssign((x) => ({ ...x, [k]: ids })); setEdited((x) => [...new Set([...x, k])]); setEditing(null); toast('배정을 수정했습니다.'); };
-  const requestReview = () => { setState('review'); notify('근무표 초안 검토 요청을 매니저에게 보냈습니다'); toast('장윤서 매니저에게 검토를 요청했습니다.'); };
-  const publish = () => { setConfirm(false); setState('published'); notify('다음 주 근무표가 확정·공개되었습니다'); toast('근무표를 확정하고 직원에게 공개했습니다.'); };
+  const saveCell = (k, ids) => { editScheduleCell(k, ids, OWNER.userId).catch(fail); setEditing(null); toast('배정을 수정했습니다.'); };
+  const requestReview = () => { changeScheduleState('review').catch(fail); notify('근무표 초안 검토 요청을 매니저에게 보냈습니다'); toast('장윤서 매니저에게 검토를 요청했습니다.'); };
+  // 2-5 · E4 위반이 있으면 확정하지 않는다(DB 트리거도 한 번 더 막는다)
+  const publish = () => {
+    setConfirm(false);
+    if (viol.length) { toast('규칙 위반이 있어 확정할 수 없습니다.'); return; }
+    changeScheduleState('published', OWNER.userId).catch(fail);
+    notify('다음 주 근무표가 확정·공개되었습니다'); toast('근무표를 확정하고 직원에게 공개했습니다.');
+  };
 
   const actions = state === 'published'
-    ? <Button variant="secondary" icon="edit" onClick={() => setState('draft')}>다시 편집</Button>
+    ? <Button variant="secondary" icon="edit" onClick={() => changeScheduleState('draft').catch(fail)}>다시 편집</Button>
     : state === 'draft' || state === 'review'
       ? <>
           <Button variant="secondary" icon="refresh" onClick={generate} disabled={loading}>초안 다시 생성</Button>
@@ -248,13 +258,14 @@ export function SchedulePage() {
 
 /* 2-4 · 초안 검토·수정 (매니저) */
 export function ScheduleReviewPage() {
-  const { schedState: state, setSchedState, assign, setAssign, edited, setEdited, notify } = useApp();
+  const { schedState: state, assign, edited, notify, editScheduleCell, changeScheduleState } = useApp();
   const toast = useToast();
+  const fail = saveFailed(toast);
   const [editing, setEditing] = useState(null);
   const viol = violations(assign);
   const short = shortCells(assign);
-  const saveCell = (k, ids) => { setAssign((x) => ({ ...x, [k]: ids })); setEdited((x) => [...new Set([...x, k])]); setEditing(null); toast('배정을 수정했습니다. 규칙을 다시 확인했습니다.'); };
-  const done = () => { setSchedState('draft'); notify('장윤서 매니저가 근무표 초안 검토를 마쳤습니다'); toast('검토 완료를 점주에게 알렸습니다.'); };
+  const saveCell = (k, ids) => { editScheduleCell(k, ids, STAFF[0].userId).catch(fail); setEditing(null); toast('배정을 수정했습니다. 규칙을 다시 확인했습니다.'); };
+  const done = () => { changeScheduleState('draft').catch(fail); notify('장윤서 매니저가 근무표 초안 검토를 마쳤습니다'); toast('검토 완료를 점주에게 알렸습니다.'); };
 
   return (
     <>

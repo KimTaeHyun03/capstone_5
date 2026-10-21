@@ -5,7 +5,7 @@ import { useApp } from '../../state/AppState.jsx';
 import { useBase, useRolePath } from '../../layouts/Layouts.jsx';
 import { recordAdjustments } from '../../lib/inventory.js';
 import { markNotificationsRead, resolveShortageReport } from '../../lib/alerts.js';
-import { devUserIdFor } from '../../lib/devUser.js';
+import { useDbUserId } from '../../lib/currentUser.js';
 
 const LEVEL = { low: ['red', '부족'], warn: ['orange', '주의'], ok: ['green', '충분'] };
 
@@ -61,6 +61,7 @@ export function InventoryPage() {
 /* 4-5 · 부족 알림 수신 (점주·매니저) */
 export function AlertsPage() {
   const { lowStock, reports, reloadReports, inventory, notifications, loadAlerts } = useApp();
+  const me = useDbUserId();
   const toast = useToast();
   const base = useBase();
   const p = useRolePath();
@@ -70,7 +71,7 @@ export function AlertsPage() {
     catch (e) { toast(`처리하지 못했습니다. ${e.message}`); }
   };
   const readAll = async () => {
-    try { await markNotificationsRead(devUserIdFor(base)); await loadAlerts(); toast('모든 알림을 읽음으로 표시했습니다.'); }
+    try { await markNotificationsRead(me); await loadAlerts(); toast('모든 알림을 읽음으로 표시했습니다.'); }
     catch (e) { toast(`처리하지 못했습니다. ${e.message}`); }
   };
   return (
@@ -129,8 +130,8 @@ export function AlertsPage() {
 /* 4-3 · 실사·폐기 기록 (매니저) */
 export function StocktakePage() {
   const { inventory, inventorySource, reloadInventory, loadAlerts } = useApp();
+  const me = useDbUserId();
   const toast = useToast();
-  const base = useBase();
   const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState('count');
   const [vals, setVals] = useState({});
@@ -156,7 +157,7 @@ export function StocktakePage() {
       // 재고 변동 기록(실사 보정·폐기) 저장 + 재고 반영은 DB 함수가 처리한다. 부족 알림도 DB 트리거가 보낸다.
       await recordAdjustments(
         filled.map((i) => ({ ingredientId: i.ingredientId, qty: Number(vals[i.id]) })),
-        mode === 'count' ? '실사 보정' : '폐기', devUserIdFor(base), mode === 'waste' ? reason : null);
+        mode === 'count' ? '실사 보정' : '폐기', me, mode === 'waste' ? reason : null);
       await Promise.all([reloadInventory(), loadAlerts()]);
       toast(`${filled.length}개 품목을 ${mode === 'count' ? '실사 수량으로 보정' : '폐기 처리'}했습니다.`);
       setVals({});

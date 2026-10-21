@@ -13,6 +13,7 @@ import { fetchReports, fetchNotifications } from '../lib/alerts.js';
 import { fetchOrders, fetchRecommendations } from '../lib/orders.js';
 import { fetchCorrection } from '../lib/correction.js';
 import { useOperations } from './useOperations.js';
+import { useAuth } from '../lib/auth.jsx';
 
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
@@ -20,10 +21,16 @@ export const useApp = () => useContext(Ctx);
 // work_schedule.status(DB) → 화면 단계
 const SCHED_STATE = { 초안: 'draft', 검토중: 'review', 확정: 'published' };
 const SHIFT_ARGS = SHIFTS.map(({ id, start, end }) => ({ id, start, end }));
-const ME_DB_ID = staffById[ME_STAFF_ID].dbId; // TODO(0단계): 로그인 사용자로 교체
 
 export function AppStateProvider({ children }) {
   const ops = useOperations();
+  // 로그인한 사용자(DB 사용자 id). 체험 로그인이거나 로그인 전이면 null — 이때는 DB 를 읽지 않고 예시 데이터를 쓴다.
+  const { account, demo } = useAuth();
+  const dbUserId = account && !demo ? account.id : null;
+  const live = !!(supabase && dbUserId);
+  // 사용자가 바뀐 뒤에 도착한 이전 사용자의 응답은 버린다.
+  const epoch = useRef(0);
+  const guard = (fn) => { const e = epoch.current; return (v) => { if (e === epoch.current) fn(v); }; };
   // work_schedule.status: none | draft | review | published
   const [schedState, setSchedState] = useState('none');
   const [assign, setAssign] = useState({});
@@ -34,40 +41,35 @@ export function AppStateProvider({ children }) {
   const [inventorySource, setInventorySource] = useState('sample'); // 'db' | 'sample'
   // 4-2·4-4·4-5: DB에서 읽고, 실패하면 예시 데이터를 유지한다. 쓰기 뒤에는 reload* 로 다시 읽는다.
   const reloadInventory = useCallback(() => fetchInventory()
-    .then((rows) => { setInventory(rows); setInventorySource('db'); })
-    .catch((e) => console.warn('재고 조회 실패, 예시 데이터 사용:', e.message)), []);
-  useEffect(() => { reloadInventory(); }, [reloadInventory]);
+    .then(guard((rows) => { setInventory(rows); setInventorySource('db'); }))
+    .catch((e) => console.warn('재고 조회 실패, 예시 데이터 사용:', e.message)), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [orders, setOrders] = useState(ORDERS);
   const reloadOrders = useCallback(() => fetchOrders()
-    .then(setOrders)
-    .catch((e) => console.warn('발주 조회 실패, 예시 데이터 사용:', e.message)), []);
-  useEffect(() => { reloadOrders(); }, [reloadOrders]);
+    .then(guard(setOrders))
+    .catch((e) => console.warn('발주 조회 실패, 예시 데이터 사용:', e.message)), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [correction, setCorrection] = useState(null); // 6-1·6-2: { errors, coefs }. null 이면 화면이 예시 데이터를 쓴다.
   const reloadCorrection = useCallback(() => fetchCorrection()
-    .then((c) => setCorrection(c.errors.length ? c : null))
-    .catch((e) => console.warn('오차 리포트 조회 실패, 예시 데이터 사용:', e.message)), []);
-  useEffect(() => { reloadCorrection(); }, [reloadCorrection]);
+    .then(guard((c) => setCorrection(c.errors.length ? c : null)))
+    .catch((e) => console.warn('오차 리포트 조회 실패, 예시 데이터 사용:', e.message)), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [recs, setRecs] = useState({}); // 재료별 최신 권장 발주량(5-1). 비어 있으면 화면이 예시 계산을 쓴다.
   const [recsLoaded, setRecsLoaded] = useState(false);
   const reloadRecs = useCallback(() => fetchRecommendations()
-    .then((r) => { setRecs(r); setRecsLoaded(true); })
-    .catch((e) => console.warn('권장 발주량 조회 실패, 예시 계산 사용:', e.message)), []);
-  useEffect(() => { reloadRecs(); }, [reloadRecs]);
+    .then(guard((r) => { setRecs(r); setRecsLoaded(true); }))
+    .catch((e) => console.warn('권장 발주량 조회 실패, 예시 계산 사용:', e.message)), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [reports, setReports] = useState(SHORTAGE_REPORTS);
   const [notifications, setNotifications] = useState(NOTIFICATIONS);
   const reloadReports = useCallback(() => fetchReports()
-    .then(setReports)
-    .catch((e) => console.warn('신고 조회 실패, 예시 데이터 사용:', e.message)), []);
-  useEffect(() => { reloadReports(); }, [reloadReports]);
+    .then(guard(setReports))
+    .catch((e) => console.warn('신고 조회 실패, 예시 데이터 사용:', e.message)), []); // eslint-disable-line react-hooks/exhaustive-deps
   // 알림은 받는 사람(점주·매니저)별이라 레이아웃이 현재 사용자로 불러온다.
   const alertUser = useRef(null);
   const loadAlerts = useCallback((userId) => {
     if (userId != null) alertUser.current = userId;
     if (alertUser.current == null) return Promise.resolve();
     return fetchNotifications(alertUser.current)
-      .then(setNotifications)
+      .then(guard(setNotifications))
       .catch((e) => console.warn('알림 조회 실패, 예시 데이터 사용:', e.message));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [staff, setStaff] = useState(STAFF);
   const [menus, setMenus] = useState(MENUS);
   const [clock, setClock] = useState({ in: null, out: null }); // 오늘 정윤수 출퇴근
@@ -128,17 +130,26 @@ export function AppStateProvider({ children }) {
     setEdited(rows?.edited ?? []);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 첫 화면: 내 가능시간 + 다음 주 스케줄 불러오기
+  // 로그인 사용자가 바뀔 때마다(로그인·로그아웃·계정 전환) 그 사용자의 권한으로 다시 읽는다.
+  // 로그아웃·체험 로그인이면 이전 사용자의 데이터가 남지 않도록 예시 상태로 되돌린다.
   useEffect(() => {
-    if (!supabase) return;
-    api.fetchAvailability(ME_DB_ID).then((r) => r && applyMyAvail(r)).catch((e) => console.error('가능시간 조회 실패', e));
+    epoch.current += 1;
+    if (!live) {
+      scheduleId.current = null; alertUser.current = null;
+      setInventory(INGREDIENTS); setInventorySource('sample'); setOrders(ORDERS); setReports(SHORTAGE_REPORTS);
+      setNotifications(NOTIFICATIONS); setCorrection(null); setRecs({}); setRecsLoaded(false);
+      setSchedState('none'); setAssign({}); setEdited([]); setNeed(NEED); setAvailSubmitted(false);
+      return;
+    }
+    reloadInventory(); reloadOrders(); reloadCorrection(); reloadRecs(); reloadReports();
+    api.fetchAvailability(dbUserId).then(guard((r) => r && applyMyAvail(r))).catch((e) => console.error('가능시간 조회 실패', e));
     reloadSchedule().catch((e) => console.error('스케줄 조회 실패', e));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [live, dbUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 저장은 순서대로 한 줄로 처리한다(수정 직후 확정해도 순서가 꼬이지 않게). 실패하면 DB 값으로 되돌린다.
   const queue = useRef(Promise.resolve());
   const persist = (fn) => {
-    if (!supabase) return Promise.resolve();
+    if (!live) return Promise.resolve();
     const run = queue.current.then(fn);
     queue.current = run.catch(() => {});
     return run.catch(async (e) => { await reloadSchedule().catch(() => {}); throw e; });
@@ -146,13 +157,13 @@ export function AppStateProvider({ children }) {
 
   // 2-1 · 가능시간 제출 (실패하면 throw → 화면이 오류 표시)
   const submitMyAvail = async (maxHours) => {
-    if (supabase) applyMyAvail(await api.saveAvailability(ME_DB_ID, slotsToRanges(myAvail), maxHours));
+    if (live) applyMyAvail(await api.saveAvailability(dbUserId, slotsToRanges(myAvail), maxHours));
     else { setMyMaxHours(maxHours); setAvailSubmitted(true); }
   };
 
   // 2-3 · 스케줄 초안 자동 생성 (DB 함수가 생성·저장까지 처리한다. 실패하면 throw)
   const generateSchedule = async () => {
-    if (supabase) {
+    if (live) {
       applySchedule(await api.generateScheduleDraft(STORE.dbId, NEXT_WEEK_START, SHIFT_ARGS));
       setEdited([]);
       return;

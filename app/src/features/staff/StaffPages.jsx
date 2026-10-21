@@ -5,7 +5,7 @@ import { cellKey, fmtRange, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { submitShortageReport } from '../../lib/alerts.js';
 import { clockIn, clockOut, fetchMyPay, fetchToday, kst } from '../../lib/attendance.js';
-import { DEV_USER_ID } from '../../lib/devUser.js';
+import { useDbUserId } from '../../lib/currentUser.js';
 
 const ME = staffById[ME_STAFF_ID];
 // 이번 주 확정 근무 (정윤수)
@@ -142,6 +142,7 @@ export function StaffAvailability() {
 /* 3-1 · 출근·퇴근 기록 */
 export function StaffClock() {
   const { clock: sampleClock, setClock, notify, inventorySource, loadAlerts } = useApp();
+  const me = useDbUserId();
   const toast = useToast();
   const [now, setNow] = useState(() => new Date());
   const [confirm, setConfirm] = useState(null);
@@ -152,8 +153,8 @@ export function StaffClock() {
   // DB 연결 시: 오늘의 확정 배정(예정)과 출퇴근 기록을 DB에서 읽는다. 아니면 예시 동작.
   const fromDb = inventorySource === 'db';
   const [today, setToday] = useState(null);
-  const reloadToday = () => fetchToday(DEV_USER_ID.staff).then(setToday).catch((e) => console.warn('출퇴근 조회 실패:', e.message));
-  useEffect(() => { if (fromDb) reloadToday(); }, [fromDb]); // eslint-disable-line react-hooks/exhaustive-deps
+  const reloadToday = () => fetchToday(me).then(setToday).catch((e) => console.warn('출퇴근 조회 실패:', e.message));
+  useEffect(() => { if (fromDb && me) reloadToday(); }, [fromDb, me]); // eslint-disable-line react-hooks/exhaustive-deps
   const clock = fromDb ? (today?.rec ?? { in: null, out: null }) : sampleClock;
   const samplePlan = shiftOf('pm');
   const planStart = fromDb ? today?.plan?.start : `${String(samplePlan.start).padStart(2, '0')}:00`;
@@ -172,7 +173,7 @@ export function StaffClock() {
     setSaving(true);
     try {
       // 판정(지각·조퇴)·근무시간·급여 갱신은 DB 트리거가 처리한다.
-      if (kind === 'in') await clockIn(DEV_USER_ID.staff); else await clockOut(DEV_USER_ID.staff);
+      if (kind === 'in') await clockIn(me); else await clockOut(me);
       await Promise.all([reloadToday(), loadAlerts()]);
       toast(kind === 'in' ? `${hhmm} 출근을 기록했습니다.` : `${hhmm} 퇴근을 기록했습니다. 수고하셨어요!`);
       setConfirm(null);
@@ -212,11 +213,12 @@ export function StaffClock() {
 /* 3-2 · 급여 확인 */
 export function StaffPay() {
   const { inventorySource } = useApp();
+  const me = useDbUserId();
   // DB 연결 시: 이번 달 출퇴근 기록과 주휴수당을 DB에서 읽는다. 아니면 예시 데이터.
   const [pay, setPay] = useState(null);
   useEffect(() => {
-    if (inventorySource === 'db') fetchMyPay(DEV_USER_ID.staff).then(setPay).catch((e) => console.warn('급여 조회 실패:', e.message));
-  }, [inventorySource]);
+    if (inventorySource === 'db' && me) fetchMyPay(me).then(setPay).catch((e) => console.warn('급여 조회 실패:', e.message));
+  }, [inventorySource, me]);
   const shiftsDone = pay ? pay.shifts : MY_SHIFTS_DONE;
   const wage = pay ? pay.wage : ME.wage;
   const month = pay ? pay.month : 10;
@@ -254,6 +256,7 @@ export function StaffPay() {
 /* 4-4 · 부족 직접 신고 */
 export function StaffReport() {
   const { inventory, inventorySource, reports, reloadReports } = useApp();
+  const me = useDbUserId();
   const toast = useToast();
   const [saving, setSaving] = useState(false);
   const [sel, setSel] = useState(null);
@@ -266,7 +269,7 @@ export function StaffReport() {
     setSaving(true);
     try {
       // 신고 저장과 점주·매니저 알림은 DB 함수가 한 번에 처리한다.
-      await submitShortageReport({ ingredientId: it.ingredientId, reporterId: DEV_USER_ID.staff, memo: note.trim() });
+      await submitShortageReport({ ingredientId: it.ingredientId, reporterId: me, memo: note.trim() });
       await reloadReports();
       toast(`${it.name} 부족을 점주·매니저에게 알렸습니다.`);
       setSel(null); setNote(''); setErr('');

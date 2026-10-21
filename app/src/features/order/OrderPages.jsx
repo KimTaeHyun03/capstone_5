@@ -7,11 +7,12 @@ import { useApp } from '../../state/AppState.jsx';
 import { useRolePath } from '../../layouts/Layouts.jsx';
 import { useNavigate } from 'react-router-dom';
 import { calculateRecommendations, nextMonday, placeOrder, receiveOrder } from '../../lib/orders.js';
-import { DEV_USER_ID } from '../../lib/devUser.js';
+import { useDbUserId } from '../../lib/currentUser.js';
 
 /* 5-1 · 5-2 · 권장 발주량 확인·발주 등록 (점주) */
 export function RecommendPage() {
   const { inventory, inventorySource, recs, recsLoaded, reloadRecs, reloadOrders } = useApp();
+  const me = useDbUserId();
   const toast = useToast();
   const nav = useNavigate();
   // DB 에 저장된 권장 발주량(5-E1)이 있으면 그것을, 없으면 화면 내 예시 계산을 쓴다.
@@ -63,7 +64,7 @@ export function RecommendPage() {
     setSubmitting(true);
     try {
       // 발주는 '대기'로 저장된다. 권장량과 다르게 고친 품목은 DB가 조정 여부를 표시한다.
-      await placeOrder(DEV_USER_ID.owner, lines.filter((l) => l.n > 0).map((l) => ({ ingredientId: l.it.ingredientId, recommendationId: l.recId, qty: l.n })));
+      await placeOrder(me, lines.filter((l) => l.n > 0).map((l) => ({ ingredientId: l.it.ingredientId, recommendationId: l.recId, qty: l.n })));
       await reloadOrders();
       toast(`${count}개 품목, ${won(total)} 발주를 등록했습니다.`);
       nav('/owner/order/orders');
@@ -215,6 +216,7 @@ function ReceiveModal({ order, inventory, onClose, onConfirm }) {
 /* 5-3 · 입고 처리 (매니저) */
 export function ReceivePage() {
   const { orders, inventory, inventorySource, reloadOrders, reloadInventory, loadAlerts } = useApp();
+  const me = useDbUserId();
   const toast = useToast();
   const [target, setTarget] = useState(null);
   const waiting = orders.filter((o) => o.status === '대기');
@@ -223,7 +225,7 @@ export function ReceivePage() {
     if (inventorySource !== 'db') { toast('DB에 연결되지 않아 입고를 저장할 수 없습니다.'); return; }
     try {
       // 상태 전환·재고 가산·변동 기록은 DB(입고 트리거)가 처리한다. 발주량과 다르면 차이 사유를 남긴다.
-      await receiveOrder(DEV_USER_ID.manager, order.lines.map((l) => ({
+      await receiveOrder(me, order.lines.map((l) => ({
         orderId: l.orderId, receivedQty: received[l.id], diffReason: received[l.id] !== l.qty ? '수량 차이' : null,
       })));
       await Promise.all([reloadOrders(), reloadInventory(), loadAlerts()]);

@@ -3,15 +3,15 @@
 
 export const TODAY = { label: '10.21(수)', dayIndex: 2, time: '08:52' };
 
-export const STORE = { // store
-  id: 1, // store_id
-  name: '카페 온기', address: '서울 성동구 성수이로 12', open: 8, close: 22, phone: '02-555-0142',
+export const STORE = { // store (id = dbId = store.store_id — 두 이름이 모두 쓰이고 있어 함께 둔다)
+  id: 1, dbId: 1, name: '카페 온기', address: '서울 성동구 성수이로 12', open: 8, close: 22, phone: '02-555-0142',
 };
 
 export const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 export const THIS_DATES = ['10.19', '10.20', '10.21', '10.22', '10.23', '10.24', '10.25'];
 export const NEXT_DATES = ['10.26', '10.27', '10.28', '10.29', '10.30', '10.31', '11.01'];
 export const NEXT_RANGE = '10.26(월) – 11.01(일)';
+export const THIS_WEEK_START = '2026-10-19'; // work_schedule.target_week 형식(주 시작 월요일)
 export const NEXT_WEEK_START = '2026-10-26'; // work_schedule.target_week
 export const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
 
@@ -67,17 +67,19 @@ export const SHIFTS = [
   { id: 'pm', label: '저녁', start: 17, end: 22 },
 ];
 
-// user_account + availability — userId 는 seed.sql 의 user_account.user_id
-export const OWNER = { id: 'o1', userId: 1, name: '김찬영', role: '점주', email: 'owner@cafe-ongi.kr' };
+// user_account + availability — userId = dbId = seed.sql 의 user_account.user_id (0단계 인증 전까지 화면 id ↔ DB id 연결용).
+// 두 이름이 모두 쓰이고 있어 함께 둔다(scheduleRepo.js 는 userId, api.js·AppState 는 dbId).
+export const OWNER = { id: 'o1', userId: 1, dbId: 1, name: '김찬영', role: '점주', email: 'owner@cafe-ongi.kr' };
 export const STAFF = [
-  { id: 's1', userId: 2, name: '장윤서', role: '매니저', wage: 12500, maxHours: 30, status: '활성', phone: '010-2***-1842', avail: { 0: [8, 14], 1: [8, 14], 2: [8, 14], 3: [8, 14], 4: [8, 14] } },
-  { id: 's2', userId: 3, name: '정윤수', role: '알바생', wage: 10320, maxHours: 20, status: '활성', phone: '010-5***-0931', avail: { 0: [17, 22], 1: [17, 22], 2: [17, 22], 3: [17, 22], 4: [17, 22], 5: [12, 22], 6: [12, 22] } },
-  { id: 's3', userId: 4, name: '박서진', role: '알바생', wage: 10320, maxHours: 20, status: '활성', phone: '010-7***-2210', avail: { 0: [10, 17], 2: [10, 17], 4: [10, 17], 5: [8, 17] } },
-  { id: 's4', userId: 5, name: '이도현', role: '알바생', wage: 10500, maxHours: 20, status: '활성', phone: '010-3***-5523', avail: { 1: [8, 17], 3: [8, 17], 6: [8, 17] } },
-  { id: 's5', userId: 6, name: '최하은', role: '알바생', wage: 10320, maxHours: 16, status: '활성', phone: '010-9***-7781', avail: { 2: [14, 22], 5: [12, 22], 6: [14, 22] } },
-  { id: 's6', userId: 7, name: '한지우', role: '알바생', wage: 10320, maxHours: 24, status: '초대됨', phone: '010-4***-3367', avail: { 1: [12, 22], 3: [12, 22], 5: [8, 17], 6: [8, 17] } },
+  { id: 's1', userId: 2, dbId: 2, name: '장윤서', role: '매니저', wage: 12500, maxHours: 30, status: '활성', phone: '010-2***-1842', avail: { 0: [8, 14], 1: [8, 14], 2: [8, 14], 3: [8, 14], 4: [8, 14] } },
+  { id: 's2', userId: 3, dbId: 3, name: '정윤수', role: '알바생', wage: 10320, maxHours: 20, status: '활성', phone: '010-5***-0931', avail: { 0: [17, 22], 1: [17, 22], 2: [17, 22], 3: [17, 22], 4: [17, 22], 5: [12, 22], 6: [12, 22] } },
+  { id: 's3', userId: 4, dbId: 4, name: '박서진', role: '알바생', wage: 10320, maxHours: 20, status: '활성', phone: '010-7***-2210', avail: { 0: [10, 17], 2: [10, 17], 4: [10, 17], 5: [8, 17] } },
+  { id: 's4', userId: 5, dbId: 5, name: '이도현', role: '알바생', wage: 10500, maxHours: 20, status: '활성', phone: '010-3***-5523', avail: { 1: [8, 17], 3: [8, 17], 6: [8, 17] } },
+  { id: 's5', userId: 6, dbId: 6, name: '최하은', role: '알바생', wage: 10320, maxHours: 16, status: '활성', phone: '010-9***-7781', avail: { 2: [14, 22], 5: [12, 22], 6: [14, 22] } },
+  { id: 's6', userId: 7, dbId: 7, name: '한지우', role: '알바생', wage: 10320, maxHours: 24, status: '초대됨', phone: '010-4***-3367', avail: { 1: [12, 22], 3: [12, 22], 5: [8, 17], 6: [8, 17] } },
 ];
 export const staffById = Object.fromEntries(STAFF.map((s) => [s.id, s]));
+export const staffByDbId = Object.fromEntries(STAFF.map((s) => [s.dbId, s]));
 export const ME_STAFF_ID = 's2'; // 알바생 화면의 로그인 사용자(정윤수)
 
 // attendance — 이번 주 출퇴근 (예정 vs 실제, 시:분)

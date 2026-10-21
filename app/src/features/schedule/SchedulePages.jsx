@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Badge, Button, EmptyState, Modal, PageHead, Panel, SampleTag, useToast } from '../../components/ui/index.jsx';
 import { DAYS, NEXT_DATES, NEXT_RANGE, OWNER, SHIFTS, STAFF, staffById } from '../../mocks/data.js';
-import { NEED, canWork, cellKey, fmtRange, generateDraft, hoursOf, shiftHours, shortCells, supportCount, violations } from '../../domain/index.js';
+import { NEED, canWork, cellKey, fmtAvail, fmtRange, hoursOf, shiftHours, shortCells, supportCount, violations } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useRolePath } from '../../layouts/Layouts.jsx';
 
@@ -57,7 +57,7 @@ export function AvailabilityPage() {
 }
 
 /* 공용 스케줄 그리드 */
-export function ScheduleGrid({ assign, edited = [], locked, onEdit, highlight }) {
+export function ScheduleGrid({ assign, need: needMap = NEED, edited = [], locked, onEdit, highlight }) {
   return (
     <>
       <div className="sched-wrap" tabIndex={0} role="region" aria-label="주간 스케줄, 가로로 스크롤할 수 있습니다">
@@ -72,7 +72,7 @@ export function ScheduleGrid({ assign, edited = [], locked, onEdit, highlight })
               {DAYS.map((d, di) => {
                 const k = cellKey(di, s.id);
                 const ids = assign[k] || [];
-                const need = NEED[k];
+                const need = needMap[k];
                 const short = ids.length < need;
                 return (
                   <button key={k} type="button" className={`sched-cell ${short ? 'is-short' : ''} ${edited.includes(k) ? 'is-edited' : ''}`}
@@ -97,15 +97,16 @@ export function ScheduleGrid({ assign, edited = [], locked, onEdit, highlight })
 }
 
 function EditCellModal({ di, shift, assign, onClose, onSave }) {
+  const { staff, need } = useApp();
   const k = cellKey(di, shift.id);
   const [sel, setSel] = useState(assign[k] || []);
-  const hrs = hoursOf(assign);
+  const hrs = hoursOf(assign, staff);
   const toggle = (id) => setSel((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   return (
-    <Modal title={`${DAYS[di]}요일 ${shift.label} 배정 수정`} desc={`${NEXT_DATES[di]} ${fmtRange([shift.start, shift.end])} · 필요 ${NEED[k]}명`} onClose={onClose}
+    <Modal title={`${DAYS[di]}요일 ${shift.label} 배정 수정`} desc={`${NEXT_DATES[di]} ${fmtRange([shift.start, shift.end])} · 필요 ${need[k]}명`} onClose={onClose}
       footer={<><Button variant="secondary" onClick={onClose}>취소</Button><Button onClick={() => onSave(k, sel)}>저장 ({sel.length}명)</Button></>}>
       <div className="list" role="group" aria-label="배정할 직원">
-        {STAFF.map((st) => {
+        {staff.map((st) => {
           const ok = canWork(st, di, shift);
           const after = hrs[st.id] + (sel.includes(st.id) && !(assign[k] || []).includes(st.id) ? shiftHours(shift) : 0) - (!sel.includes(st.id) && (assign[k] || []).includes(st.id) ? shiftHours(shift) : 0);
           const over = after > st.maxHours;
@@ -114,7 +115,7 @@ function EditCellModal({ di, shift, assign, onClose, onSave }) {
               <input type="checkbox" checked={sel.includes(st.id)} onChange={() => toggle(st.id)} />
               <span className="list-main">
                 <span className="list-title">{st.name} <span className="muted" style={{ fontWeight: 400 }}>{st.role}</span></span>
-                <span className="list-sub">이번 주 {after}/{st.maxHours}시간 · 가능시간 {st.avail[di] ? fmtRange(st.avail[di]) : '없음'}</span>
+                <span className="list-sub">이번 주 {after}/{st.maxHours}시간 · 가능시간 {st.avail[di] ? fmtAvail(st.avail[di]) : '없음'}</span>
               </span>
               {!ok && <Badge tone="orange">가능시간 밖</Badge>}
               {ok && over && <Badge tone="red">최대 초과</Badge>}
@@ -127,7 +128,8 @@ function EditCellModal({ di, shift, assign, onClose, onSave }) {
 }
 
 function WeeklyHours({ assign }) {
-  const hrs = hoursOf(assign);
+  const { staff } = useApp();
+  const hrs = hoursOf(assign, staff);
   return (
     <div>
       <h3 className="section-title">개인별 주간 근무시간</h3>
@@ -135,7 +137,7 @@ function WeeklyHours({ assign }) {
         <table>
           <thead><tr><th scope="col">이름</th><th scope="col">역할</th><th scope="col" className="num">배정</th><th scope="col" className="num">주 최대</th><th scope="col">상태</th></tr></thead>
           <tbody>
-            {STAFF.map((st) => (
+            {staff.map((st) => (
               <tr key={st.id}>
                 <th scope="row">{st.name}</th>
                 <td>{st.role}</td>
@@ -170,23 +172,29 @@ function Steps({ state }) {
 
 /* 2-3 · 2-5 · 스케줄 초안 자동 생성·확정 (점주) */
 export function SchedulePage() {
-  const { schedState: state, assign, edited, notify, saveScheduleDraft, editScheduleCell, changeScheduleState } = useApp();
+  const { schedState: state, assign, need, staff, edited, setEdited, generateSchedule, notify, editScheduleCell, changeScheduleState } = useApp();
   const toast = useToast();
   const fail = saveFailed(toast);
   const p = useRolePath();
   const [loading, setLoading] = useState(false);
+  const [genErr, setGenErr] = useState('');
   const [editing, setEditing] = useState(null);
   const [confirm, setConfirm] = useState(false);
-  const short = shortCells(assign);
-  const totalShort = short.reduce((a, k) => a + NEED[k] - (assign[k] || []).length, 0);
-  const viol = violations(assign);
+  const short = shortCells(assign, need);
+  const totalShort = short.reduce((a, k) => a + need[k] - (assign[k] || []).length, 0);
+  const viol = violations(assign, staff);
 
-  const generate = () => {
-    setLoading(true);
-    setTimeout(() => {
-      saveScheduleDraft(generateDraft()).catch(fail); setLoading(false);
+  const generate = async () => {
+    setLoading(true); setGenErr('');
+    try {
+      await generateSchedule();
+      setEdited([]);
       toast('예측 매출과 가능시간으로 스케줄 초안을 만들었습니다.');
-    }, 900);
+    } catch (e) {
+      setGenErr(e.message);
+    } finally {
+      setLoading(false);
+    }
   };
   const saveCell = (k, ids) => { editScheduleCell(k, ids, OWNER.userId).catch(fail); setEditing(null); toast('배정을 수정했습니다.'); };
   const requestReview = () => { changeScheduleState('review').catch(fail); notify('근무표 초안 검토 요청을 매니저에게 보냈습니다'); toast('장윤서 매니저에게 검토를 요청했습니다.'); };
@@ -213,6 +221,7 @@ export function SchedulePage() {
       <PageHead eyebrow="근무 관리 · 2-3 · 2-5" title="스케줄 편성" desc={`다음 주 ${NEXT_RANGE} · 예측 매출로 시프트별 필요 인원을 계산하고, 가능시간과 주 최대 근무시간 안에서 배정합니다.`} actions={actions} />
       <Steps state={state} />
       <div className="stack-lg">
+        {genErr && <Alert tone="danger" title="초안을 만들지 못했습니다" live>{genErr}</Alert>}
         {state === 'published' && <Alert tone="success" title="다음 주 근무표가 공개되었습니다">알바생 앱의 근무표 탭에 표시되고, 근무 전날 리마인드 알림이 발송됩니다.</Alert>}
         {state === 'review' && <Alert tone="info" title="장윤서 매니저가 초안을 검토하고 있습니다">검토가 끝나면 알림이 옵니다. 기다리지 않고 바로 확정할 수도 있습니다.</Alert>}
         {viol.length > 0 && <Alert tone="danger" title={`규칙 위반 ${viol.length}건 — 확정할 수 없습니다`}>{viol.join(' · ')}</Alert>}
@@ -235,7 +244,7 @@ export function SchedulePage() {
               </EmptyState>
             ) : (
               <div className="stack-lg">
-                <ScheduleGrid assign={assign} edited={edited} locked={state === 'published'} onEdit={(di, s) => setEditing({ di, s })} />
+                <ScheduleGrid assign={assign} need={need} edited={edited} locked={state === 'published'} onEdit={(di, s) => setEditing({ di, s })} />
                 <WeeklyHours assign={assign} />
               </div>
             )}
@@ -258,12 +267,12 @@ export function SchedulePage() {
 
 /* 2-4 · 초안 검토·수정 (매니저) */
 export function ScheduleReviewPage() {
-  const { schedState: state, assign, edited, notify, editScheduleCell, changeScheduleState } = useApp();
+  const { schedState: state, assign, need, staff, edited, notify, editScheduleCell, changeScheduleState } = useApp();
   const toast = useToast();
   const fail = saveFailed(toast);
   const [editing, setEditing] = useState(null);
-  const viol = violations(assign);
-  const short = shortCells(assign);
+  const viol = violations(assign, staff);
+  const short = shortCells(assign, need);
   const saveCell = (k, ids) => { editScheduleCell(k, ids, STAFF[0].userId).catch(fail); setEditing(null); toast('배정을 수정했습니다. 규칙을 다시 확인했습니다.'); };
   const done = () => { changeScheduleState('draft').catch(fail); notify('장윤서 매니저가 근무표 초안 검토를 마쳤습니다'); toast('검토 완료를 점주에게 알렸습니다.'); };
 
@@ -278,7 +287,7 @@ export function ScheduleReviewPage() {
               ? <Alert tone="danger" title={`규칙 위반 ${viol.length}건`}>{viol.join(' · ')} — 해결해야 검토를 완료할 수 있습니다.</Alert>
               : <Alert tone="success" title="규칙 위반이 없습니다">{short.length ? `인원 부족 시프트 ${short.length}곳은 점주에게 함께 전달됩니다.` : '모든 시프트가 충족됩니다.'}</Alert>}
             <Panel id="rv" title="검토 중인 초안" meta={`수정한 칸 ${edited.length}곳`}>
-              <ScheduleGrid assign={assign} edited={edited} onEdit={(di, s) => setEditing({ di, s })} />
+              <ScheduleGrid assign={assign} need={need} edited={edited} onEdit={(di, s) => setEditing({ di, s })} />
             </Panel>
             <WeeklyHours assign={assign} />
           </>
@@ -287,7 +296,7 @@ export function ScheduleReviewPage() {
             <EmptyState icon="clipboard" title={state === 'published' ? '이번 근무표는 이미 확정됐습니다' : '검토 요청이 없습니다'}>
               {state === 'published' ? '확정된 근무표는 점주만 다시 편집할 수 있습니다.' : '점주가 초안을 만들고 ‘매니저 검토 요청’을 누르면 여기에 표시됩니다.'}
             </EmptyState>
-            {state === 'published' && <div style={{ marginTop: 24 }}><ScheduleGrid assign={assign} locked /></div>}
+            {state === 'published' && <div style={{ marginTop: 24 }}><ScheduleGrid assign={assign} need={need} locked /></div>}
           </Panel>
         )}
       </div>

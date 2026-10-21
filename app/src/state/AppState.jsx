@@ -2,11 +2,13 @@
    DB 연동 단계에서는 이 Provider 내부만 Supabase 조회·저장으로 바꾼다. */
 import { createContext, useContext, useMemo, useState } from 'react';
 import { INGREDIENTS, ORDERS, SHORTAGE_REPORTS, NOTIFICATIONS, STAFF, MENUS } from '../mocks/data.js';
+import { useOperations } from './useOperations.js';
 
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
 
 export function AppStateProvider({ children }) {
+  const ops = useOperations();
   // work_schedule.status: none | draft | review | published
   const [schedState, setSchedState] = useState('none');
   const [assign, setAssign] = useState({});
@@ -31,6 +33,7 @@ export function AppStateProvider({ children }) {
   const unread = notifications.filter((n) => !n.read).length;
 
   const value = {
+    ops,
     schedState, setSchedState, assign, setAssign, edited, setEdited,
     inventory, setInventory, lowStock, orders, setOrders,
     reports, setReports, notifications, setNotifications, unread, notify,

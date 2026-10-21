@@ -9,7 +9,14 @@ import { router } from './router.jsx';
 import { AppStateProvider } from './state/AppState.jsx';
 import { ToastProvider } from './components/ui/index.jsx';
 
-createRoot(document.getElementById('root')).render(
+// Supabase 초대 링크의 인증 hash를 먼저 소비한 뒤 HashRouter를 렌더링한다.
+import { supabase } from './lib/supabase.js';
+async function start() {
+  if (supabase && /(?:access_token|error_description)=/.test(window.location.hash)) {
+    await supabase.auth.getSession();
+    history.replaceState(null, '', `${location.pathname}${location.search}#/`);
+  }
+  createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AppStateProvider>
       <ToastProvider>
@@ -18,3 +25,5 @@ createRoot(document.getElementById('root')).render(
     </AppStateProvider>
   </StrictMode>
 );
+}
+start();

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Icon, IconButton } from '../components/ui/index.jsx';
 import { useApp } from '../state/AppState.jsx';
 import { STORE } from '../mocks/data.js';
@@ -50,6 +50,8 @@ function SideNav({ base, nav, onNavigate }) {
 
 /* 점주·매니저 공통 셸 — 데스크톱 사이드바, 1023px 이하 서랍 */
 export function AdminLayout({ base, nav, user }) {
+  const { ops } = useApp();
+  user = ops.profile || user;
   const [drawer, setDrawer] = useState(false);
   const pathname = useScrollTop();
   const current = nav.flatMap((g) => g.items.map((it) => ({ ...it, group: g })))
@@ -79,12 +81,12 @@ export function AdminLayout({ base, nav, user }) {
             <span className="avatar" aria-hidden="true">{user.name.slice(1)}</span>
             <div className="store-chip-text">
               <span className="store-chip-name">{user.name}</span>
-              <span className="store-chip-role">{STORE.name} · {user.role}</span>
+              <span className="store-chip-role">{ops.store.name || STORE.name} · {user.role}</span>
             </div>
           </div>
           <SideNav base={base} nav={nav} onNavigate={() => setDrawer(false)} />
           <div className="sidebar-foot">
-            <Link className="nav-link" to="/" style={{ paddingLeft: 8 }}><Icon name="logout" size="sm" /><span className="nav-link-label">로그아웃</span></Link>
+            <LogoutButton />
           </div>
         </aside>
         <div className="main">
@@ -124,7 +126,7 @@ export function StaffLayout() {
         <div className="staff-col">
           <header className="staff-top">
             <h1 className="staff-top-title">{tab.label}</h1>
-            <Link className="btn btn-ghost btn-icon" to="/" aria-label="로그아웃"><Icon name="logout" size="md" /></Link>
+            <LogoutButton />
           </header>
           <main className="staff-body" key={pathname}>
             <Outlet />
@@ -144,4 +146,11 @@ export function StaffLayout() {
       </div>
     </BaseCtx.Provider>
   );
+}
+
+function LogoutButton() {
+  const { ops } = useApp(), navigate = useNavigate();
+  const [error, setError] = useState('');
+  const logout = async () => { try { if (ops.mode === 'live') await ops.signOut(); navigate('/'); } catch (e) { setError(e.message); } };
+  return <><button type="button" className="btn btn-ghost" onClick={logout}><Icon name="logout" size="sm" />{ops.mode === 'demo' ? '체험 종료' : '로그아웃'}</button>{error && <span role="alert">{error}</span>}</>;
 }

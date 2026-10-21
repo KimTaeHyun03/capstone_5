@@ -4,6 +4,7 @@ import { DAYS, NEXT_DATES, NEXT_RANGE, SHIFTS, THIS_DATES, TODAY, ME_STAFF_ID, s
 import { cellKey, fmtRange, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { submitShortageReport } from '../../lib/alerts.js';
+import { clockIn, clockOut, fetchMyPay, fetchToday, kst } from '../../lib/attendance.js';
 import { DEV_USER_ID } from '../../lib/devUser.js';
 
 const ME = staffById[ME_STAFF_ID];
@@ -129,26 +130,52 @@ export function StaffAvailability() {
 
 /* 3-1 · 출근·퇴근 기록 */
 export function StaffClock() {
-  const { clock, setClock, notify } = useApp();
+  const { clock: sampleClock, setClock, notify, inventorySource, loadAlerts } = useApp();
   const toast = useToast();
   const [now, setNow] = useState(() => new Date());
   const [confirm, setConfirm] = useState(null);
+  const [saving, setSaving] = useState(false);
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000 * 15); return () => clearInterval(t); }, []);
   const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  const plan = shiftOf('pm');
+
+  // DB 연결 시: 오늘의 확정 배정(예정)과 출퇴근 기록을 DB에서 읽는다. 아니면 예시 동작.
+  const fromDb = inventorySource === 'db';
+  const [today, setToday] = useState(null);
+  const reloadToday = () => fetchToday(DEV_USER_ID.staff).then(setToday).catch((e) => console.warn('출퇴근 조회 실패:', e.message));
+  useEffect(() => { if (fromDb) reloadToday(); }, [fromDb]); // eslint-disable-line react-hooks/exhaustive-deps
+  const clock = fromDb ? (today?.rec ?? { in: null, out: null }) : sampleClock;
+  const samplePlan = shiftOf('pm');
+  const planStart = fromDb ? today?.plan?.start : `${String(samplePlan.start).padStart(2, '0')}:00`;
+  const planEnd = fromDb ? today?.plan?.end : `${samplePlan.end}:00`;
+  const planText = fromDb ? (today?.plan ? `${planStart}–${planEnd}` : '없음') : `${samplePlan.label} ${fmtRange([samplePlan.start, samplePlan.end])}`;
+  const dateLabel = fromDb ? kst(now).label : TODAY.label;
   const stage = !clock.in ? 'in' : !clock.out ? 'out' : 'done';
-  const record = () => {
-    if (confirm === 'in') { setClock({ in: hhmm, out: null }); toast(`${hhmm} 출근을 기록했습니다.`); }
-    else { setClock((c) => ({ ...c, out: hhmm })); notify(`${ME.name} 님이 ${hhmm}에 퇴근했습니다`); toast(`${hhmm} 퇴근을 기록했습니다. 수고하셨어요!`); }
-    setConfirm(null);
+  const record = async () => {
+    const kind = confirm;
+    if (!fromDb) {
+      if (kind === 'in') { setClock({ in: hhmm, out: null }); toast(`${hhmm} 출근을 기록했습니다.`); }
+      else { setClock((c) => ({ ...c, out: hhmm })); notify(`${ME.name} 님이 ${hhmm}에 퇴근했습니다`); toast(`${hhmm} 퇴근을 기록했습니다. 수고하셨어요!`); }
+      setConfirm(null);
+      return;
+    }
+    setSaving(true);
+    try {
+      // 판정(지각·조퇴)·근무시간·급여 갱신은 DB 트리거가 처리한다.
+      if (kind === 'in') await clockIn(DEV_USER_ID.staff); else await clockOut(DEV_USER_ID.staff);
+      await Promise.all([reloadToday(), loadAlerts()]);
+      toast(kind === 'in' ? `${hhmm} 출근을 기록했습니다.` : `${hhmm} 퇴근을 기록했습니다. 수고하셨어요!`);
+      setConfirm(null);
+    } catch (e) {
+      toast(`기록하지 못했습니다. ${e.message}`);
+    } finally { setSaving(false); }
   };
   return (
     <>
       <section className="card">
         <div className="clock-face">
-          <span className="clock-date">{TODAY.label} · 카페 온기</span>
+          <span className="clock-date">{dateLabel} · 카페 온기</span>
           <span className="clock-time" aria-live="off">{hhmm}</span>
-          <span className="muted">오늘 예정 {plan.label} {fmtRange([plan.start, plan.end])}</span>
+          <span className="muted">오늘 예정 {planText}</span>
         </div>
         {stage === 'done'
           ? <Alert tone="success" title="오늘 근무 기록 완료">출근 {clock.in} · 퇴근 {clock.out} · 급여에 자동 반영돼요.</Alert>
@@ -156,16 +183,16 @@ export function StaffClock() {
       </section>
       <section className="card" aria-label="오늘 기록">
         <dl className="kv">
-          <dt>예정 출근</dt><dd>{String(plan.start).padStart(2, '0')}:00</dd>
+          <dt>예정 출근</dt><dd>{planStart || '—'}</dd>
           <dt>실제 출근</dt><dd>{clock.in || '—'}</dd>
-          <dt>예정 퇴근</dt><dd>{plan.end}:00</dd>
+          <dt>예정 퇴근</dt><dd>{planEnd || '—'}</dd>
           <dt>실제 퇴근</dt><dd>{clock.out || '—'}</dd>
         </dl>
       </section>
       <p className="help">예정보다 늦게 출근하거나 일찍 퇴근하면 지각·조퇴로 자동 표시돼요. 기록이 잘못됐다면 매니저에게 수정을 요청하세요.</p>
       {confirm && (
-        <Modal title={confirm === 'in' ? `${hhmm} 출근할까요?` : `${hhmm} 퇴근할까요?`} desc={`오늘 예정 ${fmtRange([plan.start, plan.end])}`} onClose={() => setConfirm(null)}
-          footer={<><Button variant="secondary" onClick={() => setConfirm(null)}>취소</Button><Button variant={confirm === 'in' ? 'primary' : 'danger'} onClick={record} data-autofocus>{confirm === 'in' ? '출근 기록' : '퇴근 기록'}</Button></>} />
+        <Modal title={confirm === 'in' ? `${hhmm} 출근할까요?` : `${hhmm} 퇴근할까요?`} desc={`오늘 예정 ${planText}`} onClose={() => setConfirm(null)}
+          footer={<><Button variant="secondary" onClick={() => setConfirm(null)}>취소</Button><Button variant={confirm === 'in' ? 'primary' : 'danger'} onClick={record} disabled={saving} data-autofocus>{confirm === 'in' ? '출근 기록' : '퇴근 기록'}</Button></>} />
       )}
     </>
   );
@@ -173,27 +200,38 @@ export function StaffClock() {
 
 /* 3-2 · 급여 확인 */
 export function StaffPay() {
-  const hours = MY_SHIFTS_DONE.reduce((a, s) => a + s.hours, 0);
-  const pay = hours * ME.wage;
+  const { inventorySource } = useApp();
+  // DB 연결 시: 이번 달 출퇴근 기록과 주휴수당을 DB에서 읽는다. 아니면 예시 데이터.
+  const [pay, setPay] = useState(null);
+  useEffect(() => {
+    if (inventorySource === 'db') fetchMyPay(DEV_USER_ID.staff).then(setPay).catch((e) => console.warn('급여 조회 실패:', e.message));
+  }, [inventorySource]);
+  const shiftsDone = pay ? pay.shifts : MY_SHIFTS_DONE;
+  const wage = pay ? pay.wage : ME.wage;
+  const month = pay ? pay.month : 10;
+  const holidayPay = pay ? pay.holidayPay : 0;
+  const hours = shiftsDone.reduce((a, s) => a + s.hours, 0);
+  const total = Math.round(hours * wage) + holidayPay;
   return (
     <>
       <section className="card">
-        <span className="stat-label">10월 예상 급여 (10.01 – 오늘)</span>
-        <span className="stat-value" style={{ fontSize: 'clamp(32px, 9vw, 40px)', margin: '4px 0' }}>{won(pay)}</span>
-        <span className="stat-sub">{hours.toFixed(1)}시간 × 시급 {won(ME.wage)} · 지급일 11.10</span>
+        <span className="stat-label">{month}월 예상 급여 ({month}.01 – 오늘)</span>
+        <span className="stat-value" style={{ fontSize: 'clamp(32px, 9vw, 40px)', margin: '4px 0' }}>{won(total)}</span>
+        <span className="stat-sub">{hours.toFixed(1)}시간 × 시급 {won(wage)}{holidayPay > 0 ? ` + 주휴수당 ${won(holidayPay)}` : ''} · 지급일 {month === 12 ? 1 : month + 1}.10</span>
       </section>
       <Alert tone="info" title="주휴수당은 월말에 따로 계산돼요">주 15시간 이상 근무한 주가 대상이에요. 확정 금액은 정산 후 다시 알려드려요.</Alert>
       <section className="card" aria-label="근무 내역">
         <strong style={{ display: 'block', marginBottom: 4 }}>근무 내역</strong>
         <div className="list">
-          {MY_SHIFTS_DONE.slice().reverse().map((s) => (
-            <div className="list-row" key={s.date}>
+          {shiftsDone.length === 0 && <p className="muted" style={{ padding: '16px 0' }}>이번 달 근무 기록이 아직 없어요.</p>}
+          {shiftsDone.slice().reverse().map((s) => (
+            <div className="list-row" key={`${s.date}-${s.start}`}>
               <div className="list-main">
                 <span className="list-title od-nowrap">{s.date}</span>
                 <span className="list-sub">{s.start} – {s.end} · {s.hours}시간</span>
               </div>
               {s.flag && <Badge tone="orange">{s.flag}</Badge>}
-              <span className="num" style={{ fontWeight: 600 }}>{won(s.hours * ME.wage)}</span>
+              <span className="num" style={{ fontWeight: 600 }}>{won(Math.round(s.hours * wage))}</span>
             </div>
           ))}
         </div>

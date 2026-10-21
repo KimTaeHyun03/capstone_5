@@ -1,12 +1,17 @@
 /* 화면 간 공유 상태. 역할이 달라도 같은 매장 데이터를 보므로 하나로 둔다.
-   Supabase 가 연결돼 있으면 2-1 가능시간·2-3 스케줄 초안은 DB 함수(api.js)로, 2-4~2-6 검토·수정·확정은 scheduleRepo.js 로
-   읽고 저장하고, 없으면 예시 데이터로 동작한다. */
+   Supabase 가 연결돼 있으면 DB 에서 읽고 저장하고, 없으면 예시 데이터로 동작한다.
+   - 스케줄: 2-1 가능시간·2-3 초안은 DB 함수(api.js), 2-4~2-6 검토·수정·확정은 scheduleRepo.js
+   - 재고·발주·오차 보정·알림: lib/inventory.js · orders.js · correction.js · alerts.js (쓰기 뒤에는 reload* 로 다시 읽는다) */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { INGREDIENTS, ORDERS, SHORTAGE_REPORTS, NOTIFICATIONS, STAFF, MENUS, STORE, SHIFTS, ME_STAFF_ID, NEXT_WEEK_START, THIS_WEEK_START, staffById, staffByDbId } from '../mocks/data.js';
 import { NEED, cellKey, generateDraft, rangesToAvail, rangesToSlots, slotsToRanges, warningCells } from '../domain/index.js';
 import { supabase } from '../lib/supabase.js';
 import * as api from '../lib/api.js';
 import { fetchSchedule as fetchScheduleRows, saveCell, setScheduleState, syncWarnings } from '../lib/scheduleRepo.js';
+import { fetchInventory } from '../lib/inventory.js';
+import { fetchReports, fetchNotifications } from '../lib/alerts.js';
+import { fetchOrders, fetchRecommendations } from '../lib/orders.js';
+import { fetchCorrection } from '../lib/correction.js';
 
 const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
@@ -24,9 +29,43 @@ export function AppStateProvider({ children }) {
   const [edited, setEdited] = useState([]);
   const scheduleId = useRef(null); // work_schedule.schedule_id (DB 연결 시). 저장 대기열 안에서 최신 값을 읽도록 ref
   const [inventory, setInventory] = useState(INGREDIENTS);
+  const [inventorySource, setInventorySource] = useState('sample'); // 'db' | 'sample'
+  // 4-2·4-4·4-5: DB에서 읽고, 실패하면 예시 데이터를 유지한다. 쓰기 뒤에는 reload* 로 다시 읽는다.
+  const reloadInventory = useCallback(() => fetchInventory()
+    .then((rows) => { setInventory(rows); setInventorySource('db'); })
+    .catch((e) => console.warn('재고 조회 실패, 예시 데이터 사용:', e.message)), []);
+  useEffect(() => { reloadInventory(); }, [reloadInventory]);
   const [orders, setOrders] = useState(ORDERS);
+  const reloadOrders = useCallback(() => fetchOrders()
+    .then(setOrders)
+    .catch((e) => console.warn('발주 조회 실패, 예시 데이터 사용:', e.message)), []);
+  useEffect(() => { reloadOrders(); }, [reloadOrders]);
+  const [correction, setCorrection] = useState(null); // 6-1·6-2: { errors, coefs }. null 이면 화면이 예시 데이터를 쓴다.
+  const reloadCorrection = useCallback(() => fetchCorrection()
+    .then((c) => setCorrection(c.errors.length ? c : null))
+    .catch((e) => console.warn('오차 리포트 조회 실패, 예시 데이터 사용:', e.message)), []);
+  useEffect(() => { reloadCorrection(); }, [reloadCorrection]);
+  const [recs, setRecs] = useState({}); // 재료별 최신 권장 발주량(5-1). 비어 있으면 화면이 예시 계산을 쓴다.
+  const [recsLoaded, setRecsLoaded] = useState(false);
+  const reloadRecs = useCallback(() => fetchRecommendations()
+    .then((r) => { setRecs(r); setRecsLoaded(true); })
+    .catch((e) => console.warn('권장 발주량 조회 실패, 예시 계산 사용:', e.message)), []);
+  useEffect(() => { reloadRecs(); }, [reloadRecs]);
   const [reports, setReports] = useState(SHORTAGE_REPORTS);
   const [notifications, setNotifications] = useState(NOTIFICATIONS);
+  const reloadReports = useCallback(() => fetchReports()
+    .then(setReports)
+    .catch((e) => console.warn('신고 조회 실패, 예시 데이터 사용:', e.message)), []);
+  useEffect(() => { reloadReports(); }, [reloadReports]);
+  // 알림은 받는 사람(점주·매니저)별이라 레이아웃이 현재 사용자로 불러온다.
+  const alertUser = useRef(null);
+  const loadAlerts = useCallback((userId) => {
+    if (userId != null) alertUser.current = userId;
+    if (alertUser.current == null) return Promise.resolve();
+    return fetchNotifications(alertUser.current)
+      .then(setNotifications)
+      .catch((e) => console.warn('알림 조회 실패, 예시 데이터 사용:', e.message));
+  }, []);
   const [staff, setStaff] = useState(STAFF);
   const [menus, setMenus] = useState(MENUS);
   const [clock, setClock] = useState({ in: null, out: null }); // 오늘 정윤수 출퇴근
@@ -142,8 +181,8 @@ export function AppStateProvider({ children }) {
   const value = {
     schedState, setSchedState, assign, setAssign, need, edited, setEdited,
     generateSchedule, editScheduleCell, changeScheduleState,
-    inventory, setInventory, lowStock, orders, setOrders,
-    reports, setReports, notifications, setNotifications, unread, notify,
+    inventory, setInventory, inventorySource, lowStock, orders, reloadOrders, correction, reloadCorrection, recs, recsLoaded, reloadRecs,
+    reports, setReports, reloadInventory, reloadReports, loadAlerts, notifications, setNotifications, unread, notify,
     staff, setStaff, menus, setMenus, clock, setClock,
     myAvail, setMyAvail, myMaxHours, availSubmitted, submitMyAvail,
   };

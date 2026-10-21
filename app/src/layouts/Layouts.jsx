@@ -4,6 +4,7 @@ import { Icon, IconButton } from '../components/ui/index.jsx';
 import { useApp } from '../state/AppState.jsx';
 import { STORE } from '../mocks/data.js';
 import { STAFF_TABS } from './nav.js';
+import { devUserIdFor } from '../lib/devUser.js';
 
 // 역할 루트 경로 — 같은 페이지 컴포넌트를 점주·매니저가 함께 쓸 때 링크를 맞춘다
 const BaseCtx = createContext('/owner');
@@ -51,6 +52,8 @@ function SideNav({ base, nav, onNavigate }) {
 /* 점주·매니저 공통 셸 — 데스크톱 사이드바, 1023px 이하 서랍 */
 export function AdminLayout({ base, nav, user }) {
   const [drawer, setDrawer] = useState(false);
+  const { loadAlerts } = useApp();
+  useEffect(() => { loadAlerts(devUserIdFor(base)); }, [base, loadAlerts]); // 4-5
   const pathname = useScrollTop();
   const current = nav.flatMap((g) => g.items.map((it) => ({ ...it, group: g })))
     .find((it) => (it.path ? `${base}/${it.path}` : base) === pathname);

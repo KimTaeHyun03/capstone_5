@@ -6,6 +6,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router.jsx';
+import { AuthProvider } from './lib/auth.jsx';
 import { AppStateProvider } from './state/AppState.jsx';
 import { ToastProvider } from './components/ui/index.jsx';
 
@@ -18,11 +19,13 @@ async function start() {
   }
   createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AppStateProvider>
-      <ToastProvider>
-        <RouterProvider router={router} />
-      </ToastProvider>
-    </AppStateProvider>
+    <AuthProvider>
+      <AppStateProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </AppStateProvider>
+    </AuthProvider>
   </StrictMode>
 );
 }

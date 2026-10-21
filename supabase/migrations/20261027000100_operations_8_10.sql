@@ -2,7 +2,8 @@
 -- ⚠️ 원격 DB 미적용. 적용 절차(점주 계정 연결, Edge Function 배포 포함)는 저장소 루트의 8-10단계_DB반영_안내.md 참고.
 -- 모든 앱 접근은 auth.uid()를 검증하는 RPC를 통한다. 직접 쓰기는 허용하지 않는다.
 begin;
-alter table public.user_account add column auth_user_id uuid unique references auth.users(id);
+-- 0단계 인증 마이그레이션(20261026000300_auth_rls.sql)이 먼저 같은 컬럼을 만들 수 있어 중복 적용에 안전하게 둔다.
+alter table public.user_account add column if not exists auth_user_id uuid unique references auth.users(id);
 alter table public.user_account add column email text;
 alter table public.user_account alter column password_hash drop not null;
 create unique index user_account_email_unique on public.user_account(lower(email)) where email is not null;

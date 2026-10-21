@@ -34,3 +34,33 @@
 2. 내 쪽: 화면용 함수에 `authenticated` 실행 권한과 역할 검사(`ops_actor` 사용, 점주/매니저/알바생별)를 넣고 임시 정책·`devUser.js` 제거, 읽기는 정식 RLS 정책(같은 매장, 역할별)으로 교체
 3. A·B 쪽: 가능시간 모델 통일, 임시 anon 쓰기 정책 제거, `userId`/`dbId`를 로그인 사용자로 교체
 4. 각 기능이 로그인 상태에서 동작하면 `implemented`에 경로 추가
+
+---
+
+# 업데이트: chanyoung(0~2단계 인증·RLS) 병합 후
+
+`yunsu`와 `chanyoung`이 각자 인증을 만들어서 `develop`에 로그인 구현이 두 벌 있었다. **로그인·라우트 가드는 chanyoung 것(`lib/auth.jsx`, `RequireRole`, `EntryPage`)을 기준으로 하나로 합쳤다.** 둘 다 같은 `supabase.auth` 세션과 같은 `user_account.auth_user_id` 컬럼을 쓰므로 yunsu의 8~10단계 화면은 같은 로그인 위에서 동작한다. 위의 1~3번(anon 읽기 삭제로 내 화면이 빔, 로그인 게이트가 화면을 가림)은 아래 내용으로 **대체**된다.
+
+## 한 일
+- 코드 충돌 3개 해결: `router.jsx`(`RequireRole`·`EntryPage` 사용, `/owner/sales/status`는 chanyoung의 `SalesStatusPage`), `Layouts.jsx`(chanyoung의 `useAuth`/`useLogout`, 알림 수신자는 로그인한 사용자 id), `기능구현순서.md`
+- yunsu의 `OperationsAuth.jsx`(`LoginPage`·`RouteGate`)는 더 이상 연결되지 않는다(파일은 남겨 둠). `LogoutButton`은 제거
+- 마이그레이션 순서 정리 (버전이 서로 겹치던 것 해소): A·B `20261026000100~200` → **chanyoung `20261026000300~500`** → **yunsu `20261027000100`**. yunsu 파일은 `auth_user_id` 컬럼 추가를 `if not exists`로 바꿔 chanyoung이 먼저 적용돼도 안전
+- 17개 마이그레이션을 시드 위에 순서대로 적용 성공. 역할별 접근 시뮬레이션:
+
+| 역할 | 결과 |
+|---|---|
+| 점주(로그인) | 재고·권장 발주량·보정 계수·신고·본인 알림이 RLS로 정상 조회, yunsu `ops_snapshot` 정상 |
+| 알바생(로그인) | 매출 0건(차단), 타인 급여 0건, 본인 급여 1건, 재고 조회 가능 |
+| 비로그인 | 재고·메뉴 등 기초 데이터는 0건(차단) |
+
+## 아직 남은 문제 (원격에 적용하기 전에 처리해야 함) ✋
+1. **비로그인(anon)이 읽을 수 있는 테이블**: attendance(출퇴근), payroll(급여), work_schedule, shift_assignment, shortage_report, notification, forecast_error, user_account — 내 개발용 정책(`dev anon read …`)과 팀원 A의 임시 정책 때문. 로그인해야 한다는 chanyoung의 설계와 어긋남
+2. **비로그인(anon)이 쓸 수 있는 것**: work_schedule·shift_assignment 직접 쓰기(A의 임시 정책), 그리고 anon에 열린 함수 17개 — 내 함수(재고 조정·신고·발주·입고·출퇴근·마감 실행·알림 읽음 등)와 3~4단계 함수(`get_schedule`, `generate_schedule_draft`, `get/save_availability`)
+3. **로그인한 사용자는 내 함수를 실행할 수 없음**: 내 함수는 `anon`에만 권한이 있어서 점주로 로그인해도 "permission denied". 즉 11~15단계 **쓰기가 로그인 상태에서 막힌다**(읽기는 RLS로 정상)
+4. 내 화면의 사용자는 아직 `lib/devUser.js` 고정값(점주 1·매니저 2·알바생 3)이고, 알림만 로그인 사용자 id를 쓴다 — 출퇴근·신고·발주·입고도 로그인 사용자의 `account.id`로 바꿔야 함
+5. 내 테스트 2개가 실패 (`stock_adjust_report`, `order_receipt`) — anon으로 읽던 걸 더는 읽지 못해서. 로그인 사용자 기준으로 고쳐야 함
+6. 가능시간(2-1)이 두 방식(3~4단계 RPC / yunsu `ops_availability`)으로 남아 있음, `scheduleRepo`의 직접 쓰기는 anon 정책에 기대고 있음
+7. yunsu의 Playwright UI 테스트(`app/tests/ui/operations.spec.js`)는 yunsu의 로그인 화면 기준이라 깨질 수 있음(실행하지 않음). chanyoung의 체험 모드(`VITE_DEMO_LOGIN`)와 yunsu의 로컬 체험은 별개이고, 환경변수가 있으면 yunsu 화면은 실제 DB 모드로 동작해 체험 로그인으로는 데이터가 안 보임
+
+## 제안: 다음 작업
+내 쪽 권한을 chanyoung의 역할 모델에 맞춘다 — 함수에 `authenticated` 권한과 역할 검사(`app.my_user_id()`/`app.my_role()`)를 넣고 사용자 id는 로그인 값으로, 내 개발용 정책·`devUser.js` 제거, 테스트를 로그인 시뮬레이션으로 교체. 3~4단계 함수와 A의 임시 정책도 같은 방식으로 정리해야 한다.

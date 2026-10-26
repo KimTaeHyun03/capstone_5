@@ -88,7 +88,7 @@ export function AppStateProvider({ children }) {
     const byDb = Object.fromEntries(rows.map((r) => [r.user_id, r]));
     setStaff((prev) => prev.map((st) => {
       const r = byDb[st.dbId];
-      return r ? { ...st, maxHours: Number(r.max_weekly_hours ?? st.maxHours), avail: rangesToAvail(r.ranges) } : st;
+      return r ? { ...st, maxHours: Number(r.max_weekly_hours ?? st.maxHours), avail: rangesToAvail(r.ranges), submitted: r.submitted ?? st.submitted } : st;
     }));
   };
 

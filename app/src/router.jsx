@@ -52,6 +52,8 @@ export const router = createHashRouter([
       { path: 'my-availability', element: <AvailabilityEditor /> },
       { path: 'schedule', element: <ScheduleReviewPage /> },
       { path: 'timetable', element: <ScheduleOverviewPage /> },
+      { path: 'clock', element: <StaffClock /> }, // 매니저도 근무에 배정되므로 본인 출퇴근·급여를 확인한다
+      { path: 'pay', element: <StaffPay /> },
       { path: 'inventory', element: <InventoryPage /> },
       { path: 'stocktake', element: <StocktakePage /> },
       { path: 'alerts', element: <AlertsPage /> },

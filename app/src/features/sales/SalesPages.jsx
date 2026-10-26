@@ -114,8 +114,8 @@ export function SalesStatusPage() {
     <>
       {head}
       <div className="stack-lg">
-        <Alert tone="info" title="판매 기록 출처는 아직 정하지 않았습니다">
-          POS 연동·직접 입력·파일 업로드 중 방식이 정해지면 1-1 판매 기록 수집 화면이 추가됩니다.{sales.demo ? ' 지금은 예시 매출입니다.' : ' 지금은 확정된 매출 집계(sales_summary)를 보여 줍니다.'}
+        <Alert tone="info" title="POS 연동 전에는 직접 입력·CSV 업로드로 판매를 기록합니다">
+          판매 기록 화면(1-1)에서 저장한 판매가 집계되어 이 화면에 반영됩니다.{sales.demo ? ' 지금은 예시 매출입니다.' : ' 지금은 확정된 매출 집계(sales_summary)를 보여 줍니다.'}
         </Alert>
         <div className="grid-3">
           <StatCard label="주간 매출" value={man(total)} unit="만원" />

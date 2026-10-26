@@ -10,9 +10,9 @@ import { useDbUserId } from '../../lib/currentUser.js';
 const ME = staffById[ME_STAFF_ID];
 // 이번 주 확정 근무 (정윤수)
 const THIS_WEEK = [
-  { di: 0, shift: 'pm', status: 'done' }, { di: 1, shift: 'pm', status: 'done' }, { di: 2, shift: 'pm', status: 'today' },
-  { di: 4, shift: 'pm', status: 'next' }, { di: 5, shift: 'mid', status: 'next' }, { di: 6, shift: 'pm', status: 'next' },
-];
+  { di: 0, shift: 'pm' }, { di: 1, shift: 'pm' }, { di: 2, shift: 'pm' },
+  { di: 4, shift: 'pm' }, { di: 5, shift: 'mid' }, { di: 6, shift: 'pm' },
+].map((w) => ({ ...w, status: w.di < TODAY.dayIndex ? 'done' : w.di === TODAY.dayIndex ? 'today' : 'next' }));
 const COWORKERS = { 0: ['s3'], 1: ['s6'], 2: ['s5'], 4: ['s3'], 5: ['s3', 's5'], 6: ['s4'] };
 const shiftOf = (id) => SHIFTS.find((s) => s.id === id);
 
@@ -35,8 +35,9 @@ function DayRow({ di, dates, shift, status, coworkers }) {
 export function StaffSchedule() {
   const { schedState, assign } = useApp();
   const [week, setWeek] = useState('this');
-  const today = THIS_WEEK.find((w) => w.status === 'today');
+  const today = THIS_WEEK.find((w) => w.status === 'today') ?? THIS_WEEK.find((w) => w.status === 'next') ?? THIS_WEEK[THIS_WEEK.length - 1];
   const ts = shiftOf(today.shift);
+  const todayLabel = today.status === 'today' ? '오늘' : `${DAYS[today.di]}요일`;
   const next = schedState === 'published'
     ? DAYS.flatMap((_, di) => SHIFTS.filter((s) => (assign[cellKey(di, s.id)] || []).includes(ME.id)).map((s) => ({ di, shift: s.id, coworkers: assign[cellKey(di, s.id)].filter((id) => id !== ME.id) })))
     : null;
@@ -44,8 +45,8 @@ export function StaffSchedule() {
   return (
     <>
       <div className="hello">
-        <span className="hello-name">{ME.name} 님, 오늘 {ts.label} 근무예요</span>
-        <span className="hello-sub">{TODAY.label} {fmtRange([ts.start, ts.end])} · 출근 전 출퇴근 탭에서 기록하세요</span>
+        <span className="hello-name">{ME.name} 님, {todayLabel} {ts.label} 근무예요</span>
+        <span className="hello-sub">{today.status === 'today' ? TODAY.label : `${THIS_DATES[today.di]}(${DAYS[today.di]})`} {fmtRange([ts.start, ts.end])} · 출근 전 출퇴근 탭에서 기록하세요</span>
       </div>
       <Segment label="주 선택" value={week} onChange={setWeek} options={[{ value: 'this', label: '이번 주' }, { value: 'next', label: '다음 주' }]} />
       {week === 'this' ? (

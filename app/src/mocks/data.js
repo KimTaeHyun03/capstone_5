@@ -1,18 +1,31 @@
 /* 예시 데이터 — DB 연동 전 화면 확인용. 이름은 22개 테이블(snake_case) 대응을 주석으로 남긴다.
-   기준일: 2026-10-21(수). '이번 주' = 10.19–10.25, '다음 주' = 10.26–11.01 */
+   날짜는 한국 시간(KST) 기준 "오늘"에서 계산한다. '이번 주' = 오늘이 속한 월~일, '다음 주' = 그 다음 주 */
 
-export const TODAY = { label: '10.21(수)', dayIndex: 2, time: '08:52' };
+// 한국 시간으로 옮긴 시각의 UTC 필드를 KST 값으로 읽는다(브라우저 시간대와 무관)
+const kstNow = new Date(Date.now() + 9 * 3600e3);
+const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
+const dayIdx = (kstNow.getUTCDay() + 6) % 7;
+const weekMonday = (offset) => new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate() - dayIdx + offset * 7));
+const addDays = (date, n) => new Date(date.getTime() + n * 86400e3);
+const md = (date) => `${date.getUTCMonth() + 1}.${String(date.getUTCDate()).padStart(2, '0')}`;
+const ymd = (date) => date.toISOString().slice(0, 10);
+const weekDates = (monday) => Array.from({ length: 7 }, (_, i) => md(addDays(monday, i)));
+
+export const TODAY = {
+  label: `${md(kstNow)}(${WEEKDAYS[dayIdx]})`, dayIndex: dayIdx,
+  time: `${String(kstNow.getUTCHours()).padStart(2, '0')}:${String(kstNow.getUTCMinutes()).padStart(2, '0')}`,
+};
 
 export const STORE = { // store (id = dbId = store.store_id — 두 이름이 모두 쓰이고 있어 함께 둔다)
   id: 1, dbId: 1, name: '카페 온기', address: '서울 성동구 성수이로 12', open: 8, close: 22, phone: '02-555-0142',
 };
 
 export const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
-export const THIS_DATES = ['10.19', '10.20', '10.21', '10.22', '10.23', '10.24', '10.25'];
-export const NEXT_DATES = ['10.26', '10.27', '10.28', '10.29', '10.30', '10.31', '11.01'];
-export const NEXT_RANGE = '10.26(월) – 11.01(일)';
-export const THIS_WEEK_START = '2026-10-19'; // work_schedule.target_week 형식(주 시작 월요일)
-export const NEXT_WEEK_START = '2026-10-26'; // work_schedule.target_week
+export const THIS_DATES = weekDates(weekMonday(0));
+export const NEXT_DATES = weekDates(weekMonday(1));
+export const NEXT_RANGE = `${md(weekMonday(1))}(월) – ${md(addDays(weekMonday(1), 6))}(일)`;
+export const THIS_WEEK_START = ymd(weekMonday(0)); // work_schedule.target_week 형식(주 시작 월요일)
+export const NEXT_WEEK_START = ymd(weekMonday(1)); // work_schedule.target_week
 export const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
 
 const HOUR_PROFILE = { 8: 0.62, 9: 0.92, 10: 0.7, 11: 0.82, 12: 1.32, 13: 1.4, 14: 1.0, 15: 1.08, 16: 0.98, 17: 0.86, 18: 0.78, 19: 0.66, 20: 0.48, 21: 0.3 };

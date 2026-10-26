@@ -8,6 +8,7 @@ export const OWNER_NAV = [
   ] },
   { id: 'work', label: '근무 관리', icon: 'calendar', items: [
     { path: 'work/availability', label: '가능시간 현황', proc: '2-2' },
+    { path: 'work/timetable', label: '근무표 조회', proc: '2-6' },
     { path: 'work/schedule', label: '스케줄 편성', proc: '2-3 · 2-5' },
     { path: 'work/labor', label: '출퇴근·인건비', proc: '3-3' },
   ] },
@@ -32,6 +33,7 @@ export const MANAGER_NAV = [
   { id: 'work', label: '근무 관리', icon: 'calendar', items: [
     { path: 'my-availability', label: '내 가능시간 등록', proc: '2-1' },
     { path: 'availability', label: '가능시간 현황', proc: '2-2' },
+    { path: 'timetable', label: '근무표 조회', proc: '2-6' },
     { path: 'schedule', label: '초안 검토·수정', proc: '2-4' },
   ] },
   { id: 'stock', label: '재고 관리', icon: 'box', items: [

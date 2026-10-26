@@ -197,7 +197,8 @@ declare r jsonb;
 begin
   r := get_schedule(1, date '2026-11-02');
   assert r is not null and r->>'status' = '확정', '알바생에게 확정 스케줄이 보이지 않음';
-  assert jsonb_array_length(r->'staff') = 0, '알바생에게 직원 가능시간 목록이 노출됨';
+  -- 알바생에게는 함께 근무하는 직원 이름·역할만 내려가고, 가능시간·시급·최대 근무시간은 내려가면 안 된다
+  assert not exists (select 1 from jsonb_array_elements(r->'staff') e where e ? 'ranges' or e ? 'hourly_wage' or e ? 'max_weekly_hours' or e ? 'registered_at'), '알바생에게 직원 가능시간·시급이 노출됨';
 end $$;
 select 'schedule visibility: OK' as step;
 

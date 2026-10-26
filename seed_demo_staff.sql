@@ -1,7 +1,7 @@
 -- 시연용 직원 2명 추가 + 11.02 주 가능시간 (모두 가짜 데이터). 인원 부족 시연을 줄이기 위한 보강이다.
 -- 실행: npx supabase db query --linked -f seed_demo_staff.sql  (재실행 안전: 이미 있으면 건너뜀)
--- 주의: 스케줄 화면의 직원 목록은 app/src/mocks/data.js 의 STAFF 에도 같은 직원(s7 송다은 / s8 윤태오)의 dbId 가 실제 user_id 와 같아야 한다.
---       user_id 는 identity 로 자동 부여되어 DB 마다 다를 수 있다(원격은 49·50). 실행 후 `select user_id, name from user_account where login_id in ('song@example.com','yoon@example.com')` 로 확인해 STAFF 의 userId/dbId 를 맞출 것이 있어야 보인다.
+-- 참고: 스케줄 화면의 직원 목록은 get_schedule 이 내려 주는 DB 직원으로 채워진다(화면 코드에 직원을 추가할 필요 없음).
+
 begin;
 
 insert into user_account (store_id, login_id, password_hash, name, role, hourly_wage, max_weekly_hours, preferred_weekly_hours, phone, status)

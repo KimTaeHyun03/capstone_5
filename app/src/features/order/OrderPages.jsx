@@ -304,7 +304,7 @@ export function CorrectionPage() {
         <div className="grid-3">
           <StatCard label="지난주 평균 오차율" value={`${avgErr.toFixed(1)}%`} sub={latest.period} />
           <StatCard label="지난주 폐기 금액" value={won(totalWaste)} sub="재고 변동 기록(폐기) 합계" />
-          <StatCard label="다음 발주 반영" value="새 계수" sub="매주 일요일 마감 후 자동 계산" />
+          <StatCard label="다음 발주 반영" value="새 계수" sub="매주 월요일 새벽 마감 후 자동 계산" />
         </div>
         {overForecast.length > 0 && <Alert tone="info" title={`${overForecast.map((id) => ing(id).name).join(', ')}은(는) 3주 연속 실제 소진이 예측보다 12% 이상 적었습니다`}>보정 계수를 낮춰 다음 권장량이 줄었습니다. 폐기량도 함께 줄어드는지 확인하세요.</Alert>}
         <Panel id="ce" title="재료별 예측 vs 실제 (최근 3주)" actions={fromDb ? null : <SampleTag />}>

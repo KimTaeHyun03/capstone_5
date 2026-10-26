@@ -135,6 +135,40 @@ export function Meter({ value, max, level }) {
   return <span className={`meter ${level === 'low' ? 'is-low' : level === 'warn' ? 'is-warn' : ''}`} aria-hidden="true"><span style={{ width: `${Math.min(100, (value / max) * 100)}%` }} /></span>;
 }
 
+/* 표 페이지 나누기 — 쪽 번호는 5개씩 묶어 보여 주고, 처음·끝·10쪽 앞뒤로 건너뛰는 버튼을 둔다. page 는 0부터 */
+const PAGE_GROUP = 5;
+const PAGE_JUMP = 10;
+export function usePaged(rows, size = 20) {
+  const [page, setPage] = useState(0);
+  const pages = Math.max(1, Math.ceil(rows.length / size));
+  const cur = Math.min(page, pages - 1); // 조회 결과가 줄어 쪽이 사라져도 마지막 쪽으로 맞춘다
+  return { page: cur, pages, setPage, rows: rows.slice(cur * size, (cur + 1) * size) };
+}
+
+export function Pagination({ page, pages, onPage, total }) {
+  if (pages <= 1) return null;
+  const go = (p) => onPage(Math.min(pages - 1, Math.max(0, p)));
+  const start = Math.floor(page / PAGE_GROUP) * PAGE_GROUP;
+  const nums = Array.from({ length: Math.min(PAGE_GROUP, pages - start) }, (_, i) => start + i);
+  const nav = (label, aria, target, disabled) => (
+    <Button variant="text" size="sm" aria-label={aria} disabled={disabled} onClick={() => go(target)}>{label}</Button>
+  );
+  return (
+    <nav className="od-cluster" aria-label="페이지 이동" style={{ justifyContent: 'center', marginTop: 12 }}>
+      {nav('« 처음', '첫 페이지', 0, page === 0)}
+      {nav('‹ 10쪽', `${PAGE_JUMP}페이지 앞으로`, page - PAGE_JUMP, page === 0)}
+      {nav('‹ 이전', '이전 페이지', page - 1, page === 0)}
+      {nums.map((p) => (
+        <Button key={p} variant={p === page ? 'primary' : 'secondary'} size="sm" aria-current={p === page ? 'page' : undefined} onClick={() => go(p)}>{p + 1}</Button>
+      ))}
+      {nav('다음 ›', '다음 페이지', page + 1, page >= pages - 1)}
+      {nav('10쪽 ›', `${PAGE_JUMP}페이지 뒤로`, page + PAGE_JUMP, page >= pages - 1)}
+      {nav('끝 »', '마지막 페이지', pages - 1, page >= pages - 1)}
+      <span className="help">{page + 1} / {pages}쪽{total != null ? ` · 총 ${total}행` : ''}</span>
+    </nav>
+  );
+}
+
 /* 모달 — 포커스 가두기, Esc 닫기, 열기 전 포커스 복귀 */
 export function Modal({ title, desc, onClose, children, footer }) {
   const ref = useRef(null);

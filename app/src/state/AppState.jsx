@@ -168,6 +168,9 @@ export function AppStateProvider({ children }) {
     reloadSchedule().catch((e) => console.error('스케줄 조회 실패', e));
   }, [live, dbUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 재료를 등록·수정(CSV 포함)하면 재고 목록도 다시 읽는다. 안 그러면 새로고침 전까지 실사·재고 화면에 새 재료가 안 뜬다.
+  useEffect(() => { if (live) reloadInventory(); }, [ops.ingredients]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 저장은 순서대로 한 줄로 처리한다(수정 직후 확정해도 순서가 꼬이지 않게). 실패하면 DB 값으로 되돌린다.
   const queue = useRef(Promise.resolve());
   const persist = (fn) => {

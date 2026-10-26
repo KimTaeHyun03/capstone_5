@@ -55,6 +55,8 @@ export function RecommendPage() {
   const total = lines.reduce((a, l) => a + l.n * l.it.price, 0);
   const count = lines.filter((l) => l.n > 0).length;
   const badList = inventory.filter((it) => errors[it.id]);
+  // 처음 쓰는 매장: 판매 기록이 없으면 예상 소진량이 전부 0이라 재고가 부족해도 권장량이 0으로 나온다. 이유를 알려 준다.
+  const noUsage = inventorySource === 'db' && recsLoaded && inventory.length > 0 && lines.every((l) => !l.it.use);
 
   const submit = async () => {
     const errs = Object.fromEntries(inventory.map((it) => [it.id, validate(it, qty[it.id])]));
@@ -79,6 +81,11 @@ export function RecommendPage() {
       <PageHead eyebrow="발주 관리 · 5-1 · 5-2" title="권장 발주" desc="다음 주 예상 소진량과 보정 계수로 계산한 권장량입니다. 수량을 고친 뒤 발주를 등록하세요." />
       <div className="stack-lg">
         <Alert tone="info" title="권장 발주량 = 예상 소진량 × 보정 계수 − 현재 재고">발주 단위로 올림한 값입니다. 보정 계수는 최근 3주 예측 오차로 계산했습니다.{recsLoaded && Object.keys(recs).length > 0 && ` (계산 기준: ${new Date(Object.values(recs)[0].calculatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })})`}</Alert>
+        {noUsage && (
+          <Alert tone="warning" title="아직 예상 소진량을 계산할 판매 기록이 없습니다">
+            판매 기록이 쌓이면 최근 판매량을 기준으로 권장량이 계산됩니다. 판매 기록 화면에서 판매를 입력하거나 CSV로 올린 뒤 &lsquo;지금 재고로 다시 계산&rsquo;을 누르세요. 그 전에도 아래 발주 수량을 직접 입력해 발주할 수 있습니다.
+          </Alert>
+        )}
         <AiInsight kind="order_explain" title="AI 발주 설명" hint="재료별 권장량이 왜 그 수량인지 예상 소진량·보정 계수·현재 재고 기준으로 설명합니다." />
         {badList.length > 0 && (
           <div className="alert alert-danger" role="alert">

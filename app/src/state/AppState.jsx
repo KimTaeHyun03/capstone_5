@@ -71,6 +71,8 @@ export function AppStateProvider({ children }) {
       .catch((e) => console.warn('알림 조회 실패, 예시 데이터 사용:', e.message));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [staff, setStaff] = useState(STAFF);
+  // 이번 주 확정 근무표(2-6 알바생 조회). null = 예시 모드, { published, assign } = DB 에서 읽은 결과
+  const [thisWeek, setThisWeek] = useState(null);
   const [menus, setMenus] = useState(MENUS);
   const [clock, setClock] = useState({ in: null, out: null }); // 오늘 정윤수 출퇴근
   const [myAvail, setMyAvail] = useState(() => {
@@ -128,6 +130,11 @@ export function AppStateProvider({ children }) {
     applySchedule(await api.fetchSchedule(STORE.dbId, NEXT_WEEK_START, SHIFT_ARGS));
     const rows = await fetchScheduleRows(NEXT_WEEK_START);
     setEdited(rows?.edited ?? []);
+    // 이번 주는 확정·공개된 근무표만 쓴다(알바생은 DB 권한상 확정분만 읽을 수 있다)
+    const cur = await api.fetchSchedule(STORE.dbId, THIS_WEEK_START, SHIFT_ARGS);
+    const assign = {};
+    (cur?.cells ?? []).forEach((c) => { assign[cellKey(c.day, c.shift)] = c.user_ids.map((uid) => staffByDbId[uid]?.id).filter(Boolean); });
+    setThisWeek({ published: cur?.status === '확정', assign });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 로그인 사용자가 바뀔 때마다(로그인·로그아웃·계정 전환) 그 사용자의 권한으로 다시 읽는다.
@@ -138,7 +145,7 @@ export function AppStateProvider({ children }) {
       scheduleId.current = null; alertUser.current = null;
       setInventory(INGREDIENTS); setInventorySource('sample'); setOrders(ORDERS); setReports(SHORTAGE_REPORTS);
       setNotifications(NOTIFICATIONS); setCorrection(null); setRecs({}); setRecsLoaded(false);
-      setSchedState('none'); setAssign({}); setEdited([]); setNeed(NEED); setAvailSubmitted(false);
+      setSchedState('none'); setAssign({}); setEdited([]); setNeed(NEED); setAvailSubmitted(false); setThisWeek(null);
       return;
     }
     reloadInventory(); reloadOrders(); reloadCorrection(); reloadRecs(); reloadReports();
@@ -199,7 +206,7 @@ export function AppStateProvider({ children }) {
     generateSchedule, editScheduleCell, changeScheduleState,
     inventory, setInventory, inventorySource, lowStock, orders, reloadOrders, correction, reloadCorrection, recs, recsLoaded, reloadRecs,
     reports, setReports, reloadInventory, reloadReports, loadAlerts, notifications, setNotifications, unread, notify,
-    staff, setStaff, menus, setMenus, clock, setClock,
+    staff, setStaff, thisWeek, menus, setMenus, clock, setClock,
     myAvail, setMyAvail, myMaxHours, availSubmitted, submitMyAvail,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

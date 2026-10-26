@@ -36,7 +36,9 @@ function DayRow({ di, dates, shift, status, coworkers }) {
 export function StaffSchedule() {
   const { schedState, assign, thisWeek } = useApp();
   const dbUserId = useDbUserId();
-  const me = (dbUserId && staffByDbId[dbUserId]) || ME; // 로그인한 직원(화면 직원 목록에 없으면 예시 직원)
+  const { account } = useAuth();
+  // 로그인한 직원. 화면 직원 목록에 아직 없으면(근무표가 없을 때 등) 로그인 계정 이름을 쓰고, 계정이 없는 예시 모드에서만 예시 직원(정윤수)을 쓴다.
+  const me = (dbUserId && staffByDbId[dbUserId]) || (account ? { id: null, name: account.name } : ME);
   const [week, setWeek] = useState('this');
   const statusOf = (di) => (di < TODAY.dayIndex ? 'done' : di === TODAY.dayIndex ? 'today' : 'next');
   // 이번 주: DB 에서 읽었으면 확정 근무표에서 내 근무를 뽑고, 예시 모드면 예시 근무를 쓴다
@@ -157,6 +159,7 @@ export function StaffAvailability() {
 export function StaffClock() {
   const { clock: sampleClock, setClock, notify, inventorySource, loadAlerts } = useApp();
   const me = useDbUserId();
+  const { account } = useAuth();
   const toast = useToast();
   const [now, setNow] = useState(() => new Date());
   const [confirm, setConfirm] = useState(null);
@@ -199,7 +202,7 @@ export function StaffClock() {
     <>
       <section className="card">
         <div className="clock-face">
-          <span className="clock-date">{dateLabel} · 카페 온기</span>
+          <span className="clock-date">{dateLabel} · {account?.storeName ?? '카페 온기'}</span>
           <span className="clock-time" aria-live="off">{hhmm}</span>
           <span className="muted">오늘 예정 {planText}</span>
         </div>
@@ -233,8 +236,9 @@ export function StaffPay() {
   useEffect(() => {
     if (inventorySource === 'db' && me) fetchMyPay(me).then(setPay).catch((e) => console.warn('급여 조회 실패:', e.message));
   }, [inventorySource, me]);
-  const shiftsDone = pay ? pay.shifts : MY_SHIFTS_DONE;
-  const wage = pay ? pay.wage : ME.wage;
+  const live = inventorySource === 'db'; // 실제 매장이면 불러오는 동안 예시(정윤수) 근무 내역·시급을 보여 주지 않는다
+  const shiftsDone = pay ? pay.shifts : live ? [] : MY_SHIFTS_DONE;
+  const wage = pay ? pay.wage : live ? 0 : ME.wage;
   const month = pay ? pay.month : 10;
   const holidayPay = pay ? pay.holidayPay : 0;
   const hours = shiftsDone.reduce((a, s) => a + s.hours, 0);

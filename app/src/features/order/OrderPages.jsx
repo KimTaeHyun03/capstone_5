@@ -276,10 +276,23 @@ export function CorrectionPage() {
   };
   // 3기간 연속으로 실제가 예측보다 12% 이상 적은 재료
   const overForecast = errors.length >= 3 ? ids.filter((id) => errors.slice(-3).every((e) => e.rows[id] && e.rows[id][0] > 0 && (e.rows[id][0] - e.rows[id][1]) / e.rows[id][0] >= 0.12)) : [];
+  // 실제 매장(DB)인데 마감 기록이 아직 없으면 예시 표 대신 안내를 보여 준다(예시는 체험 모드에서만)
+  if (inventorySource === 'db' && !correction) {
+    return (
+      <>
+        <PageHead eyebrow="발주 관리 · 6-1 · 6-2" title="예측 오차 보정" desc="실제 소진량 = 기초 재고 + 입고 − 기말 재고. 예측과의 차이로 다음 발주의 보정 계수를 계산합니다."
+          actions={<Button variant="secondary" onClick={runClose} disabled={closing}>{closing ? '마감 중…' : '지난주 마감 실행'}</Button>} />
+        <div className="stack-lg">
+          <Panel id="ce-empty"><EmptyState icon="chart" title="아직 마감된 주가 없습니다">판매와 입고 기록이 쌓이고 주간 마감(매주 월요일 새벽 자동)이 지나면 예측 오차와 폐기, 새 보정 계수가 여기에 표시됩니다.</EmptyState></Panel>
+          <AiInsight kind="correction_report" title="AI 오차 리포트 요약" hint="지난 기간의 예측 오차·폐기·보정 계수 변화를 요약하고 오차가 큰 재료를 짚어 줍니다." />
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <PageHead eyebrow="발주 관리 · 6-1 · 6-2" title="예측 오차 보정" desc="실제 소진량 = 기초 재고 + 입고 − 기말 재고. 예측과의 차이로 다음 발주의 보정 계수를 계산합니다."
-        actions={inventorySource === 'db' ? <Button variant="secondary" onClick={runClose} disabled={closing}>{closing ? '마감 중…' : '지난주 마감 실행 (개발용)'}</Button> : null} />
+        actions={inventorySource === 'db' ? <Button variant="secondary" onClick={runClose} disabled={closing}>{closing ? '마감 중…' : '지난주 마감 실행'}</Button> : null} />
       <div className="stack-lg">
         <div className="grid-3">
           <StatCard label="지난주 평균 오차율" value={`${avgErr.toFixed(1)}%`} sub={latest.period} />

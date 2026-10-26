@@ -27,13 +27,49 @@ function LoadError({ message, onRetry }) {
 }
 const DataTag = ({ demo }) => (demo ? <SampleTag /> : null);
 
+/* 처음 시작하는 점주를 위한 시작 안내 — 실제 매장(DB)에서 아직 안 한 준비만 보여 준다. 모두 끝나면 사라진다 */
+function OnboardingChecklist({ ops, hasSales }) {
+  if (ops.mode !== 'live' || ops.loading) return null;
+  const menus = ops.menus ?? [];
+  const steps = [
+    { done: menus.length > 0, title: '메뉴 등록', desc: '파는 메뉴와 가격을 등록하세요.', to: '/owner/base/menu' },
+    { done: (ops.ingredients ?? []).length > 0, title: '재료 등록', desc: '재료의 단위·단가·최소 보유량·발주 단위를 등록하세요.', to: '/owner/base/ingredient' },
+    { done: menus.length > 0 && menus.every((m) => (ops.recipes?.[m.id] ?? []).length > 0), title: '레시피 등록', desc: '메뉴 1개에 들어가는 재료와 양을 정하면 판매할 때 재고가 자동으로 줄어요.', to: '/owner/base/menu' },
+    { done: (ops.staff ?? []).length > 0, title: '직원 초대', desc: '매니저·알바생의 이메일을 등록하고 초대 메일을 보내세요.', to: '/owner/base/store' },
+    { done: hasSales || (ops.sales ?? []).length > 0 || (ops.summary ?? []).length > 0, title: '판매 기록 입력', desc: '직접 입력하거나 CSV로 올리면 매출 예측과 발주 계산이 시작돼요.', to: '/owner/sales/records' },
+  ];
+  const left = steps.filter((s) => !s.done).length;
+  if (!left) return null;
+  const next = steps.find((s) => !s.done);
+  return (
+    <Panel id="onboarding" title="시작하기" meta={`${steps.length - left}/${steps.length} 완료`}
+      actions={<Button to={next.to}>다음: {next.title}</Button>}>
+      <ol className="list" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {steps.map((s, i) => (
+          <li key={s.title} className="list-row">
+            <div className="list-main">
+              <span className="list-title">{i + 1}. {s.title}</span>
+              <span className="list-sub">{s.desc}</span>
+            </div>
+            {s.done ? <Badge tone="green">완료</Badge> : <Button variant="secondary" size="sm" to={s.to}>하러 가기</Button>}
+          </li>
+        ))}
+      </ol>
+    </Panel>
+  );
+}
+
 /* 대시보드 — 점주 홈 */
 export function OwnerDashboard() {
-  const { lowStock, reports, schedState, inventory, notifications } = useApp();
+  const { lowStock, reports, schedState, inventory, notifications, staff, ops } = useApp();
   const { account } = useAuth();
   const sales = useSales();
   const orderCount = inventory.filter((i) => recommendQty(i) > 0).length;
   const schedBadge = { none: ['gray', '초안 없음'], draft: ['orange', '초안 작성 중'], review: ['blue', '매니저 검토 중'], published: ['green', '확정·공개됨'] }[schedState];
+
+  // 다음 주 가능시간 제출 현황(직원 목록은 DB 에서 읽은 실제 직원)
+  const submittedCount = staff.filter((s) => s.submitted === true).length;
+  const availSub = sales.demo ? '가능시간 제출 6명 중 5명' : staff.length ? `가능시간 제출 ${staff.length}명 중 ${submittedCount}명` : '직원을 초대하면 가능시간을 받아요';
 
   const fc = sales.forecast;
   const peak = fc && peakOf(fc.matrix);
@@ -47,6 +83,7 @@ export function OwnerDashboard() {
 
       <div className="stack-lg">
         {sales.error && <LoadError message={sales.error} onRetry={sales.reload} />}
+        <OnboardingChecklist ops={ops} hasSales={!!(sales.last || sales.forecast)} />
         {(lowStock.length > 0 || reports.length > 0) && (
           <Alert tone="danger" title={`재고 부족 ${lowStock.length}건 · 직원 신고 ${reports.length}건`}
             action={<Button variant="secondary" to="/owner/stock/alerts">확인하기</Button>}>
@@ -59,7 +96,7 @@ export function OwnerDashboard() {
             sub={diff !== null ? <><span className={diff >= 0 ? 'delta-up' : 'delta-down'}>{pct(diff)}</span> 최근 실적 주 대비</> : '예측 없음'} to="/owner/sales/forecast" />
           <StatCard label="예측 피크타임" value={peak ? `${peak.day} ${peak.hour}시` : '—'}
             sub={peak ? `시간당 ${peak.v}천원 · 필요 ${fc.staff[peak.di][peak.hi]}명` : '예측 없음'} to="/owner/sales/forecast" />
-          <StatCard label="다음 주 근무표" value={<Badge tone={schedBadge[0]}>{schedBadge[1]}</Badge>} sub="가능시간 제출 6명 중 5명" to="/owner/work/schedule" />
+          <StatCard label="다음 주 근무표" value={<Badge tone={schedBadge[0]}>{schedBadge[1]}</Badge>} sub={availSub} to="/owner/work/schedule" />
           <StatCard label="권장 발주 품목" value={orderCount} unit="개" sub="보정 계수 반영" to="/owner/order/recommend" />
         </div>
 

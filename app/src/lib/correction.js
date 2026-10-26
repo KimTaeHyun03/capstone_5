@@ -29,7 +29,7 @@ export async function fetchCorrection() {
     periods.get(key).rows[`i${r.ingredient_id}`] = [Number(r.forecast_usage), Number(r.actual_usage), Number(r.waste_qty ?? 0)];
   }
   const errors = [...periods.values()].slice(0, 3).reverse()
-    .map((p) => ({ period: `${md(p.start)}–${md(p.end)}`, rows: p.rows }));
+    .map((p) => ({ period: `${md(p.start)}–${md(p.end)}`, start: p.start, end: p.end, rows: p.rows }));
 
   const coefs = {};
   for (const c of coef.data) {

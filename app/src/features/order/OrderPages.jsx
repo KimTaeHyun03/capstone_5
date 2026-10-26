@@ -7,15 +7,27 @@ import { useApp } from '../../state/AppState.jsx';
 import { useRolePath } from '../../layouts/Layouts.jsx';
 import { useNavigate } from 'react-router-dom';
 import { calculateRecommendations, nextMonday, placeOrder, receiveOrder } from '../../lib/orders.js';
+import { kst } from '../../lib/attendance.js';
 import { useDbUserId } from '../../lib/currentUser.js';
 import { AiInsight } from '../ai/AiInsight.jsx';
 
 /* 5-1 · 5-2 · 권장 발주량 확인·발주 등록 (점주) */
 export function RecommendPage() {
-  const { inventory, inventorySource, recs, recsLoaded, reloadRecs, reloadOrders } = useApp();
+  const { inventory, inventorySource, recs, recsLoaded, reloadRecs, reloadOrders, correction, reloadCorrection, loadAlerts } = useApp();
   const me = useDbUserId();
   const toast = useToast();
   const nav = useNavigate();
+  const [closing, setClosing] = useState(false);
+  // 지난주(월~일)를 마감했는지: 마감 기록이 있으면 오차·보정 계수가 반영된 권장량, 없으면 최근 판매 기준 권장량이다.
+  const lastWeek = (() => {
+    const t = kst();
+    const end = new Date(`${t.ymd}T00:00:00Z`); end.setUTCDate(end.getUTCDate() - t.dow - 1);
+    const start = new Date(end); start.setUTCDate(start.getUTCDate() - 6);
+    const iso = (d) => d.toISOString().slice(0, 10);
+    const md = (d) => `${d.getUTCMonth() + 1}.${String(d.getUTCDate()).padStart(2, '0')}`;
+    return { end: iso(end), label: `${md(start)}–${md(end)}` };
+  })();
+  const lastWeekClosed = !!correction?.errors.some((e) => e.end === lastWeek.end);
   // DB 에 저장된 권장 발주량(5-E1)이 있으면 그것을, 없으면 화면 내 예시 계산을 쓴다.
   const recOf = (it) => recs[it.id]?.rec ?? recommendQty(it);
   const init = () => Object.fromEntries(inventory.map((it) => [it.id, String(recOf(it))]));
@@ -31,6 +43,17 @@ export function RecommendPage() {
     try { await calculateRecommendations(); await reloadRecs(); toast('현재 재고로 권장 발주량을 다시 계산했습니다.'); }
     catch (e) { toast(`계산하지 못했습니다. ${e.message}`); }
     finally { setCalculating(false); }
+  };
+  // 마감이 늦어졌을 때 여기서 바로 마감하고, 마감 결과(오차·보정 계수)를 넣어 권장량을 다시 계산한다.
+  const closeAndRecalc = async () => {
+    setClosing(true);
+    try {
+      await runPeriodClose();
+      await Promise.all([reloadCorrection(), loadAlerts()]);
+      await calculateRecommendations(); await reloadRecs();
+      toast(`${lastWeek.label} 주를 마감하고 권장 발주량을 다시 계산했습니다.`);
+    } catch (e) { toast(`마감하지 못했습니다. ${e.message}`); }
+    finally { setClosing(false); }
   };
   // 다음 주 기준 권장량이 아직 없으면 처음 한 번 자동 계산한다.
   const autoCalc = useRef(false);
@@ -81,6 +104,14 @@ export function RecommendPage() {
       <PageHead eyebrow="발주 관리 · 5-1 · 5-2" title="권장 발주" desc="다음 주 예상 소진량과 보정 계수로 계산한 권장량입니다. 수량을 고친 뒤 발주를 등록하세요." />
       <div className="stack-lg">
         <Alert tone="info" title="권장 발주량 = 예상 소진량 × 보정 계수 − 현재 재고">발주 단위로 올림한 값입니다. 보정 계수는 최근 3주 예측 오차로 계산했습니다.{recsLoaded && Object.keys(recs).length > 0 && ` (계산 기준: ${new Date(Object.values(recs)[0].calculatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })})`}</Alert>
+        {inventorySource === 'db' && recsLoaded && (lastWeekClosed
+          ? <Alert tone="success" title={`지난주(${lastWeek.label}) 마감 완료`}>지난주 예측 오차와 보정 계수가 반영된 권장량입니다.</Alert>
+          : (
+            <Alert tone="warning" title={`지난주(${lastWeek.label})는 아직 마감 전입니다`}>
+              지금은 마감 기록 대신 최근 판매량을 기준으로 계산하고, 보정 계수는 이전 값을 그대로 씁니다. 마감하면 예측 오차와 보정 계수를 반영해 권장량을 다시 계산합니다. 마감은 자동으로 하지 않으니, 지난주 판매 기록(CSV)을 모두 올린 뒤 마감하세요.
+              <div className="od-cluster" style={{ marginTop: 8 }}><Button variant="secondary" size="sm" icon="plus" to="/owner/sales/records">판매 기록 입력</Button><Button variant="secondary" size="sm" onClick={closeAndRecalc} disabled={closing}>{closing ? '마감 중…' : '지난주 마감하고 다시 계산'}</Button></div>
+            </Alert>
+          ))}
         {noUsage && (
           <Alert tone="warning" title="아직 예상 소진량을 계산할 판매 기록이 없습니다">
             판매 기록이 쌓이면 최근 판매량을 기준으로 권장량이 계산됩니다. 판매 기록 화면에서 판매를 입력하거나 CSV로 올린 뒤 &lsquo;지금 재고로 다시 계산&rsquo;을 누르세요. 그 전에도 아래 발주 수량을 직접 입력해 발주할 수 있습니다.
@@ -260,7 +291,7 @@ export function ReceivePage() {
 
 /* 6-1 · 6-2 · 오차·폐기 리포트, 보정 계수 반영 확인 (점주) */
 export function CorrectionPage() {
-  const { inventory, inventorySource, correction, reloadCorrection, loadAlerts } = useApp();
+  const { inventory, inventorySource, correction, reloadCorrection, reloadRecs, loadAlerts } = useApp();
   const toast = useToast();
   const [closing, setClosing] = useState(false);
   // DB 의 마감 기록이 있으면 그것을, 없으면 예시 데이터를 쓴다.
@@ -277,6 +308,7 @@ export function CorrectionPage() {
     try {
       const r = await runPeriodClose();
       await Promise.all([reloadCorrection(), loadAlerts()]);
+      if (r.closed || r.coefficients) { await calculateRecommendations(); await reloadRecs(); } // 새 보정 계수를 권장 발주량에 바로 반영
       toast(r.closed || r.coefficients ? `${r.period_start} 주 마감: 오차 ${r.closed}건, 보정 계수 ${r.coefficients}건을 만들었습니다.` : '이미 마감된 기간입니다.');
     } catch (e) { toast(`마감하지 못했습니다. ${e.message}`); }
     finally { setClosing(false); }
@@ -288,9 +320,9 @@ export function CorrectionPage() {
     return (
       <>
         <PageHead eyebrow="발주 관리 · 6-1 · 6-2" title="예측 오차 보정" desc="실제 소진량 = 기초 재고 + 입고 − 기말 재고. 예측과의 차이로 다음 발주의 보정 계수를 계산합니다."
-          actions={<Button variant="secondary" onClick={runClose} disabled={closing}>{closing ? '마감 중…' : '지난주 마감 실행'}</Button>} />
+          actions={<><Button variant="secondary" icon="plus" to="/owner/sales/records">판매 기록 입력</Button><Button variant="secondary" onClick={runClose} disabled={closing}>{closing ? '마감 중…' : '지난주 마감 실행'}</Button></>} />
         <div className="stack-lg">
-          <Panel id="ce-empty"><EmptyState icon="chart" title="아직 마감된 주가 없습니다">판매와 입고 기록이 쌓이고 주간 마감(매주 월요일 새벽 자동)이 지나면 예측 오차와 폐기, 새 보정 계수가 여기에 표시됩니다.</EmptyState></Panel>
+          <Panel id="ce-empty"><EmptyState icon="chart" title="아직 마감된 주가 없습니다">지난주 판매와 입고 기록을 올린 뒤 오른쪽 위 ‘지난주 마감 실행’을 누르면 예측 오차와 폐기, 새 보정 계수가 여기에 표시됩니다.</EmptyState></Panel>
           <AiInsight kind="correction_report" title="AI 오차 리포트 요약" hint="지난 기간의 예측 오차·폐기·보정 계수 변화를 요약하고 오차가 큰 재료를 짚어 줍니다." />
         </div>
       </>
@@ -299,12 +331,12 @@ export function CorrectionPage() {
   return (
     <>
       <PageHead eyebrow="발주 관리 · 6-1 · 6-2" title="예측 오차 보정" desc="실제 소진량 = 기초 재고 + 입고 − 기말 재고. 예측과의 차이로 다음 발주의 보정 계수를 계산합니다."
-        actions={inventorySource === 'db' ? <Button variant="secondary" onClick={runClose} disabled={closing}>{closing ? '마감 중…' : '지난주 마감 실행'}</Button> : null} />
+        actions={inventorySource === 'db' ? <><Button variant="secondary" icon="plus" to="/owner/sales/records">판매 기록 입력</Button><Button variant="secondary" onClick={runClose} disabled={closing}>{closing ? '마감 중…' : '지난주 마감 실행'}</Button></> : null} />
       <div className="stack-lg">
         <div className="grid-3">
           <StatCard label="지난주 평균 오차율" value={`${avgErr.toFixed(1)}%`} sub={latest.period} />
           <StatCard label="지난주 폐기 금액" value={won(totalWaste)} sub="재고 변동 기록(폐기) 합계" />
-          <StatCard label="다음 발주 반영" value="새 계수" sub="매주 월요일 새벽 마감 후 자동 계산" />
+          <StatCard label="다음 발주 반영" value="새 계수" sub="지난주 마감 실행 후 계산" />
         </div>
         {overForecast.length > 0 && <Alert tone="info" title={`${overForecast.map((id) => ing(id).name).join(', ')}은(는) 3주 연속 실제 소진이 예측보다 12% 이상 적었습니다`}>보정 계수를 낮춰 다음 권장량이 줄었습니다. 폐기량도 함께 줄어드는지 확인하세요.</Alert>}
         <Panel id="ce" title="재료별 예측 vs 실제 (최근 3주)" actions={fromDb ? null : <SampleTag />}>

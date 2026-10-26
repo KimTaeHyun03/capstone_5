@@ -3,6 +3,7 @@ import { Alert, Badge, Button, Field, Icon, Modal, Segment, useToast } from '../
 import { DAYS, NEXT_DATES, NEXT_RANGE, SHIFTS, THIS_DATES, TODAY, ME_STAFF_ID, staffById, staffByDbId, MY_SHIFTS_DONE } from '../../mocks/data.js';
 import { cellKey, fmtRange, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
+import { useAuth } from '../../lib/auth.jsx';
 import { submitShortageReport } from '../../lib/alerts.js';
 import { clockIn, clockOut, fetchMyPay, fetchToday, kst } from '../../lib/attendance.js';
 import { useDbUserId } from '../../lib/currentUser.js';
@@ -269,6 +270,7 @@ export function StaffPay() {
 /* 4-4 · 부족 직접 신고 */
 export function StaffReport() {
   const { inventory, inventorySource, reports, reloadReports } = useApp();
+  const { account } = useAuth();
   const me = useDbUserId();
   const toast = useToast();
   const [saving, setSaving] = useState(false);
@@ -290,7 +292,7 @@ export function StaffReport() {
       toast(`신고하지 못했습니다. ${e.message}`);
     } finally { setSaving(false); }
   };
-  const mine = reports.filter((r) => r.by === ME.name);
+  const mine = reports.filter((r) => r.by === (account?.name ?? ME.name));
   return (
     <>
       <div className="hello">

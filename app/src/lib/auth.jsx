@@ -42,6 +42,8 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined); // undefined = 확인 중
   const [account, setAccount] = useState(() => (demo ? readDemo() : undefined)); // null = 연결된 계정 없음
   const [needsPassword, setNeedsPassword] = useState(() => !demo && readNeedsPassword());
+  const [accountKey, setAccountKey] = useState(0); // 값이 바뀌면 user_account 를 다시 읽는다(매장 등록 직후)
+  const [accountStatus, setAccountStatus] = useState('ok'); // 'ok' | 'none'(매장에 연결 안 됨 → 점주 온보딩) | 'inactive'(비활성)
 
   useEffect(() => {
     if (demo) return;
@@ -63,13 +65,14 @@ export function AuthProvider({ children }) {
       .then(({ data, error }) => {
         if (!alive) return;
         if (error) console.error(error);
+        setAccountStatus(!data ? 'none' : data.status === '활성' ? 'ok' : 'inactive');
         // 비활성 계정은 RLS 헬퍼가 매장 데이터를 막으므로 여기서도 연결 안 된 것으로 본다
         setAccount(data && data.status === '활성'
           ? { id: data.user_id, storeId: data.store_id, email: data.login_id, name: data.name, role: data.role, storeName: data.store?.store_name }
           : null);
       });
     return () => { alive = false; };
-  }, [demo, checked, userId]);
+  }, [demo, checked, userId, accountKey]);
 
   const signIn = useCallback(async (email, password) => {
     if (demo) {
@@ -92,6 +95,31 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
   }, [demo]);
 
+  // 점주 가입(이메일·비밀번호). 이메일 인증이 켜져 있으면 세션 없이 돌아오므로 인증 메일 안내를 돌려준다.
+  const signUp = useCallback(async (email, password) => {
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` } });
+    if (error) {
+      if (/already registered|already been registered/i.test(error.message)) return { error: '이미 가입된 이메일입니다. 로그인하세요.' };
+      if (/password/i.test(error.message)) return { error: '비밀번호가 너무 짧거나 쉬워요. 8자 이상으로 입력하세요.' };
+      if (/rate limit|too many/i.test(error.message)) return { error: '잠시 뒤에 다시 시도하세요. (메일 발송 횟수 제한)' };
+      return { error: `가입하지 못했습니다. (${error.message})` };
+    }
+    // 이미 가입된 이메일이면 보안상 오류 없이 identities 가 비어 돌아온다
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) return { error: '이미 가입된 이메일입니다. 로그인하세요.' };
+    return { confirmEmail: !data.session };
+  }, []);
+
+  // 점주 온보딩: 매장을 만들고 이 계정을 그 매장의 점주로 등록한다. 성공하면 null, 실패하면 안내 문구
+  const registerStore = useCallback(async (v) => {
+    const { error } = await supabase.rpc('register_store', {
+      p_store_name: v.storeName, p_owner_name: v.ownerName, p_address: v.address || null, p_phone: v.phone || null,
+      p_open: v.open, p_close: v.close,
+    });
+    if (error) return error.message;
+    setAccountKey((k) => k + 1);
+    return null;
+  }, []);
+
   // 초대·재설정 링크로 로그인된 사용자의 첫 비밀번호 설정. 성공하면 null, 실패하면 안내 문구를 돌려준다
   const setPassword = useCallback(async (password) => {
     const { error } = await supabase.auth.updateUser({ password });
@@ -107,7 +135,7 @@ export function AuthProvider({ children }) {
   const loading = !demo && (!checked || (!!userId && account === undefined));
   const value = demo
     ? { demo, loading: false, session: account ? { user: { email: account.email } } : null, account, signIn, signOut }
-    : { demo, loading, session, account, signIn, signOut, needsPassword, setPassword };
+    : { demo, loading, session, account, accountStatus, signIn, signOut, signUp, registerStore, needsPassword, setPassword };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

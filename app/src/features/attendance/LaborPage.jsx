@@ -6,6 +6,13 @@ import { useApp } from '../../state/AppState.jsx';
 import { fetchLabor } from '../../lib/attendance.js';
 
 /* 3-3 · 예정·실제 인건비 비교 + 이번 주 출퇴근 기록 (점주) */
+// 예시 데이터(체험 모드·DB 조회 실패 시). 실제 매장 로그인에서는 직원 목록(staffById)이 DB 직원으로 바뀌므로 로드 시점에 한 번만 만든다.
+const SAMPLE = {
+  rows: PAYROLL.map((r) => ({ key: r.staffId, name: staffById[r.staffId].name, wage: staffById[r.staffId].wage, planHours: r.planHours, actualHours: r.actualHours })),
+  att: ATTENDANCE.map((a) => ({ id: a.id, name: staffById[a.staffId].name, dateLabel: `${THIS_DATES[a.day]}(${DAYS[a.day]})`, plan: a.plan, actual: a.actual, flags: attendanceFlags(a), hours: workedHours(a) })),
+  month: 10, weekRange: `${THIS_DATES[0]} – ${THIS_DATES[6]}`,
+};
+
 export default function LaborPage() {
   const { inventorySource } = useApp();
   const [tab, setTab] = useState('labor');
@@ -14,12 +21,7 @@ export default function LaborPage() {
   useEffect(() => {
     if (inventorySource === 'db') fetchLabor().then(setLive).catch((e) => console.warn('인건비 조회 실패, 예시 데이터 사용:', e.message));
   }, [inventorySource]);
-  const sample = {
-    rows: PAYROLL.map((r) => ({ key: r.staffId, name: staffById[r.staffId].name, wage: staffById[r.staffId].wage, planHours: r.planHours, actualHours: r.actualHours })),
-    att: ATTENDANCE.map((a) => ({ id: a.id, name: staffById[a.staffId].name, dateLabel: `${THIS_DATES[a.day]}(${DAYS[a.day]})`, plan: a.plan, actual: a.actual, flags: attendanceFlags(a), hours: workedHours(a) })),
-    month: 10, weekRange: `${THIS_DATES[0]} – ${THIS_DATES[6]}`,
-  };
-  const data = live ?? sample;
+  const data = live ?? SAMPLE;
   const rows = data.rows.map((r) => ({ ...r, plan: r.planHours * r.wage, actual: r.actualHours * r.wage }));
   const plan = rows.reduce((a, r) => a + r.plan, 0);
   const actual = rows.reduce((a, r) => a + r.actual, 0);

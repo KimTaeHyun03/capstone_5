@@ -93,6 +93,17 @@ export const STAFF = [
 ];
 export const staffById = Object.fromEntries(STAFF.map((s) => [s.id, s]));
 export const staffByDbId = Object.fromEntries(STAFF.map((s) => [s.dbId, s]));
+// 예시 모드용 원본 직원(복원용). 실제 매장(DB) 로그인에서는 예시 직원을 쓰지 않으므로 레지스트리를 비웠다가 DB 직원으로 채운다.
+const MOCK_STAFF = STAFF.slice();
+const setRegistry = (rows) => {
+  STAFF.length = 0; rows.forEach((s) => STAFF.push(s));
+  Object.keys(staffById).forEach((k) => delete staffById[k]);
+  Object.keys(staffByDbId).forEach((k) => delete staffByDbId[k]);
+  rows.forEach((s) => { staffById[s.id] = s; staffByDbId[s.dbId] = s; });
+};
+export const clearStaffRegistry = () => setRegistry([]);
+export const restoreMockStaffRegistry = () => setRegistry(MOCK_STAFF);
+
 // DB 에서 읽은 직원 중 위 목록에 없는 직원(7-1 에서 새로 등록한 직원 등)을 목록에 추가한다.
 // 위 세 값은 화면 전체가 같은 객체를 읽으므로, 이 함수가 제자리에서 채워 넣는다.
 export function registerStaff(rows) {

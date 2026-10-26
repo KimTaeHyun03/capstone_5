@@ -3,7 +3,7 @@
    - 스케줄: 2-1 가능시간·2-3 초안은 DB 함수(api.js), 2-4~2-6 검토·수정·확정은 scheduleRepo.js
    - 재고·발주·오차 보정·알림: lib/inventory.js · orders.js · correction.js · alerts.js (쓰기 뒤에는 reload* 로 다시 읽는다) */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { INGREDIENTS, ORDERS, SHORTAGE_REPORTS, NOTIFICATIONS, STAFF, MENUS, STORE, SHIFTS, ME_STAFF_ID, NEXT_WEEK_START, THIS_WEEK_START, staffById, staffByDbId, registerStaff } from '../mocks/data.js';
+import { INGREDIENTS, ORDERS, SHORTAGE_REPORTS, NOTIFICATIONS, STAFF, MENUS, SHIFTS, ME_STAFF_ID, NEXT_WEEK_START, THIS_WEEK_START, staffById, staffByDbId, registerStaff, clearStaffRegistry, restoreMockStaffRegistry } from '../mocks/data.js';
 import { NEED, cellKey, generateDraft, rangesToAvail, rangesToSlots, slotsToRanges, warningCells } from '../domain/index.js';
 import { supabase } from '../lib/supabase.js';
 import * as api from '../lib/api.js';
@@ -27,6 +27,7 @@ export function AppStateProvider({ children }) {
   // 로그인한 사용자(DB 사용자 id). 체험 로그인이거나 로그인 전이면 null — 이때는 DB 를 읽지 않고 예시 데이터를 쓴다.
   const { account, demo } = useAuth();
   const dbUserId = account && !demo ? account.id : null;
+  const storeId = account && !demo ? account.storeId : null; // 로그인한 사용자의 매장(DB store_id)
   const live = !!(supabase && dbUserId);
   // 사용자가 바뀐 뒤에 도착한 이전 사용자의 응답은 버린다.
   const epoch = useRef(0);
@@ -134,17 +135,17 @@ export function AppStateProvider({ children }) {
   // '수정됨' 표시(is_modified)는 get_schedule 결과에 없어서 배정 행에서 따로 읽는다.
   const reloadSchedule = useCallback(async () => {
     if (!supabase) return;
-    applySchedule(await api.fetchSchedule(STORE.dbId, NEXT_WEEK_START, SHIFT_ARGS));
-    const rows = await fetchScheduleRows(NEXT_WEEK_START);
+    applySchedule(await api.fetchSchedule(storeId, NEXT_WEEK_START, SHIFT_ARGS));
+    const rows = await fetchScheduleRows(NEXT_WEEK_START, storeId);
     setEdited(rows?.edited ?? []);
     // 이번 주는 확정·공개된 근무표만 쓴다(알바생은 DB 권한상 확정분만 읽을 수 있다)
-    const cur = await api.fetchSchedule(STORE.dbId, THIS_WEEK_START, SHIFT_ARGS);
+    const cur = await api.fetchSchedule(storeId, THIS_WEEK_START, SHIFT_ARGS);
     registerStaff(cur?.staff);
     const assign = {};
     const need = {};
     (cur?.cells ?? []).forEach((c) => { assign[cellKey(c.day, c.shift)] = c.user_ids.map((uid) => staffByDbId[uid]?.id).filter(Boolean); need[cellKey(c.day, c.shift)] = c.need; });
     setThisWeek({ published: cur?.status === '확정', status: cur?.status ?? null, assign, need });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [storeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 로그인 사용자가 바뀔 때마다(로그인·로그아웃·계정 전환) 그 사용자의 권한으로 다시 읽는다.
   // 로그아웃·체험 로그인이면 이전 사용자의 데이터가 남지 않도록 예시 상태로 되돌린다.
@@ -153,10 +154,13 @@ export function AppStateProvider({ children }) {
     if (!live) {
       scheduleId.current = null; alertUser.current = null;
       setInventory(INGREDIENTS); setInventorySource('sample'); setOrders(ORDERS); setReports(SHORTAGE_REPORTS);
+      restoreMockStaffRegistry(); setStaff(STAFF.slice()); // 예시 모드: 예시 직원 목록
       setNotifications(NOTIFICATIONS); setCorrection(null); setRecs({}); setRecsLoaded(false);
       setSchedState('none'); setAssign({}); setEdited([]); setNeed(NEED); setAvailSubmitted(false); setThisWeek(null);
       return;
     }
+    // 실제 매장: 예시 직원 대신 DB 직원으로 채운다(이전 사용자의 직원이 남지 않게 비우고 시작)
+    clearStaffRegistry(); setStaff([]); setThisWeek(null);
     reloadInventory(); reloadOrders(); reloadCorrection(); reloadRecs(); reloadReports();
     // 레이아웃이 먼저 요청한 알림 응답은 위에서 세대가 바뀌며 버려지므로, 같은 사용자로 한 번 더 읽는다(alertUser 는 레이아웃이 먼저 채워 둠)
     loadAlerts();
@@ -182,7 +186,7 @@ export function AppStateProvider({ children }) {
   // 2-3 · 스케줄 초안 자동 생성 (DB 함수가 생성·저장까지 처리한다. 실패하면 throw)
   const generateSchedule = async () => {
     if (live) {
-      applySchedule(await api.generateScheduleDraft(STORE.dbId, NEXT_WEEK_START, SHIFT_ARGS));
+      applySchedule(await api.generateScheduleDraft(storeId, NEXT_WEEK_START, SHIFT_ARGS));
       setEdited([]);
       return;
     }

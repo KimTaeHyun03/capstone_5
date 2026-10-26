@@ -14,11 +14,13 @@ export const OWNER_NAV = [
   ] },
   { id: 'stock', label: '재고 관리', icon: 'box', items: [
     { path: 'stock/inventory', label: '재고 현황', proc: '4-2' },
+    { path: 'stock/stocktake', label: '실사·폐기 기록', proc: '4-3' },
     { path: 'stock/alerts', label: '부족 알림', proc: '4-5', badge: 'alerts' },
   ] },
   { id: 'order', label: '발주 관리', icon: 'truck', items: [
     { path: 'order/recommend', label: '권장 발주', proc: '5-1 · 5-2' },
     { path: 'order/orders', label: '발주·입고 내역', proc: '5-2 · 5-3' },
+    { path: 'order/receive', label: '입고 처리', proc: '5-3' },
     { path: 'order/correction', label: '예측 오차 보정', proc: '6-1 · 6-2' },
   ] },
   { id: 'base', label: '기초 정보', icon: 'settings', items: [

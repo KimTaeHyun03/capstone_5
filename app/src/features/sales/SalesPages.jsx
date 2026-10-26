@@ -28,13 +28,14 @@ function LoadError({ message, onRetry }) {
 const DataTag = ({ demo }) => (demo ? <SampleTag /> : null);
 
 /* 처음 시작하는 점주를 위한 시작 안내 — 실제 매장(DB)에서 아직 안 한 준비만 보여 준다. 모두 끝나면 사라진다 */
-function OnboardingChecklist({ ops, hasSales }) {
+function OnboardingChecklist({ ops, hasSales, hasStock }) {
   if (ops.mode !== 'live' || ops.loading) return null;
   const menus = ops.menus ?? [];
   const steps = [
     { done: menus.length > 0, title: '메뉴 등록', desc: '파는 메뉴와 가격을 등록하세요.', to: '/owner/base/menu' },
     { done: (ops.ingredients ?? []).length > 0, title: '재료 등록', desc: '재료의 단위·단가·최소 보유량·발주 단위를 등록하세요.', to: '/owner/base/ingredient' },
     { done: menus.length > 0 && menus.every((m) => (ops.recipes?.[m.id] ?? []).length > 0), title: '레시피 등록', desc: '메뉴 1개에 들어가는 재료와 양을 정하면 판매할 때 재고가 자동으로 줄어요.', to: '/owner/base/menu' },
+    { done: hasStock, title: '처음 재고 채우기', desc: '재료를 등록하면 재고는 0으로 시작해요. 재고 실사(센 수량 입력)나 발주→입고 처리로 현재 재고를 채우세요.', to: '/owner/stock/stocktake' },
     { done: (ops.staff ?? []).length > 0, title: '직원 초대', desc: '매니저·알바생의 이메일을 등록하고 초대 메일을 보내세요.', to: '/owner/base/store' },
     { done: hasSales || (ops.sales ?? []).length > 0 || (ops.summary ?? []).length > 0, title: '판매 기록 입력', desc: '직접 입력하거나 CSV로 올리면 매출 예측과 발주 계산이 시작돼요.', to: '/owner/sales/records' },
   ];
@@ -83,7 +84,7 @@ export function OwnerDashboard() {
 
       <div className="stack-lg">
         {sales.error && <LoadError message={sales.error} onRetry={sales.reload} />}
-        <OnboardingChecklist ops={ops} hasSales={!!(sales.last || sales.forecast)} />
+        <OnboardingChecklist ops={ops} hasSales={!!(sales.last || sales.forecast)} hasStock={inventory.some((i) => i.stock > 0)} />
         {(lowStock.length > 0 || reports.length > 0) && (
           <Alert tone="danger" title={`재고 부족 ${lowStock.length}건 · 직원 신고 ${reports.length}건`}
             action={<Button variant="secondary" to="/owner/stock/alerts">확인하기</Button>}>

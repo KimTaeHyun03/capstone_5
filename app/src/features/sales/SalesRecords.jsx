@@ -35,7 +35,7 @@ export function SalesRecords() {
       <Field id="sale-amount" label="결제 금액(원)"><input id="sale-amount" className="input" type="number" min="0" step="1" value={form.amount} onChange={e=>update('amount',e.target.value)}/></Field>
     </div><Button disabled={action.busy||ops.loading} onClick={()=>action.run(()=>ops.importSales([form]),'판매 기록과 매출 집계를 저장했습니다.',()=>setForm(newForm()))}>{action.busy?'저장 중…':'판매 저장'}</Button></Panel>
     <Panel title="CSV 업로드" actions={<Button variant="secondary" onClick={download}>양식 다운로드</Button>}>
-      <p className="help">UTF-8 CSV · 최대 1,000행 / 2MB · 헤더: payment_no,menu_id,sold_at,quantity,amount. 같은 결제번호·메뉴는 한 행으로 합치세요. 기존 결제와 중복되면 전체 저장이 취소됩니다.</p>
+      <p className="help">UTF-8 CSV · 최대 1,000행 / 2MB · 헤더: payment_no,menu_name(또는 menu_id),sold_at,quantity,amount. 메뉴는 등록한 이름으로 써도 됩니다. 같은 결제번호·메뉴는 한 행으로 합치세요. 기존 결제와 중복되면 전체 저장이 취소됩니다.</p>
       <Field id="sale-file" label="CSV 파일 선택"><input id="sale-file" type="file" accept=".csv,text/csv" disabled={action.busy||fileAction.busy} onChange={readFile}/></Field><ErrorText error={fileAction.error}/>
       {!!preview.length&&<><Alert title={`${preview.length}행 검증 완료 · ${won(preview.reduce((n,r)=>n+r.amount,0))}`}>미리보기는 최대 10행입니다. 아래 저장 버튼을 눌러야 DB 또는 로컬 체험 데이터에 반영됩니다.</Alert><div className="table-wrap"><table><thead><tr><th>결제번호</th><th>메뉴</th><th>수량</th><th>금액</th></tr></thead><tbody>{preview.slice(0,10).map((r,i)=><tr key={i}><td>{r.payment_no}</td><td>{menuName(r.menu_id)}</td><td>{r.quantity}</td><td>{won(r.amount)}</td></tr>)}</tbody></table></div><Button disabled={action.busy||ops.loading} onClick={()=>action.run(()=>ops.importSales(preview),`${preview.length}행을 저장했습니다.`,()=>setPreview([]))}>검증한 {preview.length}행 저장</Button></>}
     </Panel>

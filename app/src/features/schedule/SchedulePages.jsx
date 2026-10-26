@@ -234,7 +234,7 @@ export function SchedulePage() {
         {state === 'review' && <Alert tone="info" title="장윤서 매니저가 초안을 검토하고 있습니다">검토가 끝나면 알림이 옵니다. 기다리지 않고 바로 확정할 수도 있습니다.</Alert>}
         {viol.length > 0 && <Alert tone="danger" title={`규칙 위반 ${viol.length}건 — 확정할 수 없습니다`}>{viol.join(' · ')}</Alert>}
         {(state === 'draft' || state === 'review') && totalShort > 0 && (
-          <Alert tone="warning" title={`인원 부족 시프트 ${short.length}곳 · 총 ${totalShort}명 부족`}>점선 칸을 눌러 배정을 조정하세요. 가능한 사람이 없으면 부족한 채로 확정할 수도 있습니다.</Alert>
+          <Alert tone="warning" title={`인원 부족 시프트 ${short.length}곳 · 총 ${totalShort}명 부족`}>점선 칸을 눌러 배정을 조정하세요. 가능한 사람이 없으면 알바생을 추가로 모집하거나 점주가 직접 근무해야 합니다. 부족한 채로 확정할 수도 있습니다.</Alert>
         )}
         <Panel id="sc" title={state === 'published' ? '확정 스케줄' : '스케줄 초안'} actions={<Button variant="text" to={p('work/availability')}>가능시간 현황</Button>}>
           <div aria-busy={loading}>

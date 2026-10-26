@@ -224,7 +224,7 @@ export function ForecastPage() {
           <StatCard label="예측 매출" value={man(nextTotal)} unit="만원"
             sub={last ? <><span className={nextTotal >= lastTotal ? 'delta-up' : 'delta-down'}>{pct(change(nextTotal, lastTotal))}</span> 최근 실적 주 대비</> : '비교할 실적 없음'} />
           <StatCard label="예측 피크타임" value={`${peak.day} ${peak.hour}시`} sub={lastPeak ? `${peak.v}천원 · 최근 피크 ${lastPeak.day} ${lastPeak.hour}시` : `${peak.v}천원`} />
-          <StatCard label="최대 필요 인원" value={maxStaff} unit="명" sub="시간당 10만원 이상 = 3명" />
+          <StatCard label="최대 필요 인원" value={maxStaff} unit="명" sub="시간당 12만원 이상 = 3명" />
         </div>
         <Panel id="fc-bars" title="요일별 시간대 예측" actions={<DataTag demo={sales.demo} />}>
           <ForecastBars forecast={fc} initialDay={peak.di} />
@@ -244,7 +244,7 @@ export function ForecastPage() {
           </div>
           <div className="legend"><span className="legend-swatch cb-plan" />최근 실적{sales.last && !sales.demo ? ` (${rangeLabel(sales.last.dates)})` : ''}<span className="legend-swatch cb-actual" style={{ marginLeft: 12 }} />예측</div>
         </Panel>
-        <p className="help"><Icon name="info" size="sm" /> 필요 인원 기준: 시간당 예측 매출 5만원 미만 1명 · 10만원 미만 2명 · 그 이상 3명 (점주 설정값 예시)</p>
+        <p className="help"><Icon name="info" size="sm" /> 필요 인원 기준: 시간당 예측 매출 8만원 미만 1명 · 12만원 미만 2명 · 그 이상 3명 (점주 설정값 예시)</p>
         <Link to="/owner/sales/status" className="btn btn-text" style={{ alignSelf: 'flex-start' }}>지난 매출 현황 보기</Link>
       </div>
     </>

@@ -2,7 +2,8 @@
 import { DAYS, HOURS, FORECAST, SHIFTS, STAFF, INGREDIENTS, MENUS, RECIPES } from '../mocks/data.js';
 
 // 1-3 · 시간대 예측 매출(천원) → 필요 인원
-export const needStaff = (sales) => (sales < 50 ? 1 : sales < 100 ? 2 : 3);
+// 시간당 예측 매출(천원) → 필요 인원. DB 의 app.required_staff(8만/12만)와 같은 기준이다.
+export const needStaff = (sales) => (sales < 80 ? 1 : sales < 120 ? 2 : 3);
 
 export const shiftHours = (s) => s.end - s.start;
 export const cellKey = (di, sid) => `${di}-${sid}`;

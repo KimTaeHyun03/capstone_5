@@ -90,6 +90,8 @@ export const STAFF = [
   { id: 's4', userId: 5, dbId: 5, name: '이도현', role: '알바생', wage: 10500, maxHours: 20, status: '활성', phone: '010-3***-5523', avail: { 1: [8, 17], 3: [8, 17], 6: [8, 17] } },
   { id: 's5', userId: 6, dbId: 6, name: '최하은', role: '알바생', wage: 10320, maxHours: 16, status: '활성', phone: '010-9***-7781', avail: { 2: [14, 22], 5: [12, 22], 6: [14, 22] } },
   { id: 's6', userId: 7, dbId: 7, name: '한지우', role: '알바생', wage: 10320, maxHours: 24, status: '초대됨', phone: '010-4***-3367', avail: { 1: [12, 22], 3: [12, 22], 5: [8, 17], 6: [8, 17] } },
+  { id: 's7', userId: 49, dbId: 49, name: '송다은', role: '알바생', wage: 10320, maxHours: 20, status: '활성', phone: '010-3***-5512', avail: { 1: [12, 22], 2: [12, 22], 3: [12, 22], 6: [8, 17] } },
+  { id: 's8', userId: 50, dbId: 50, name: '윤태오', role: '알바생', wage: 10320, maxHours: 20, status: '활성', phone: '010-8***-2046', avail: { 3: [8, 17], 4: [14, 22], 5: [8, 17] } },
 ];
 export const staffById = Object.fromEntries(STAFF.map((s) => [s.id, s]));
 export const staffByDbId = Object.fromEntries(STAFF.map((s) => [s.dbId, s]));

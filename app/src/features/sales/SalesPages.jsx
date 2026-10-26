@@ -137,7 +137,7 @@ export function SalesStatusPage() {
   if (sales.loading) return <>{head}<Loading /></>;
   if (sales.error) return <>{head}<LoadError message={sales.error} onRetry={sales.reload} /></>;
   if (!sales.last) {
-    return <>{head}<EmptyState icon="chart" title="확정된 매출 집계가 없습니다">판매 기록이 쌓이고 주간 마감이 되면 요일·시간대별 매출이 표시됩니다.</EmptyState></>;
+    return <>{head}<EmptyState icon="chart" title="확정된 매출 집계가 없습니다">끝난 주(지난 주 이전 날짜)의 판매 기록을 올리면 요일·시간대별 매출이 표시됩니다. 이번 주 판매는 주가 끝난 뒤 반영됩니다.</EmptyState></>;
   }
 
   const data = range === 'last' ? sales.last.matrix : sales.avg.matrix;

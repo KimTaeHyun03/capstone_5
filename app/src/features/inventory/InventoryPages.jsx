@@ -43,7 +43,7 @@ export function InventoryPage() {
                         <th scope="row">{i.name}</th>
                         <td className="num">{i.stock}{i.unit}</td>
                         <td className="num">{i.min}{i.unit}</td>
-                        <td><Meter value={i.stock} max={i.min * 2} level={lv} /></td>
+                        <td><Meter value={i.stock} max={i.min} level={lv} /></td>
                         <td><Badge tone={LEVEL[lv][0]}>{LEVEL[lv][1]}</Badge></td>
                       </tr>
                     );

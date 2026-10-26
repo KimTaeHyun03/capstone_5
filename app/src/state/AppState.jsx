@@ -3,7 +3,7 @@
    - 스케줄: 2-1 가능시간·2-3 초안은 DB 함수(api.js), 2-4~2-6 검토·수정·확정은 scheduleRepo.js
    - 재고·발주·오차 보정·알림: lib/inventory.js · orders.js · correction.js · alerts.js (쓰기 뒤에는 reload* 로 다시 읽는다) */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { INGREDIENTS, ORDERS, SHORTAGE_REPORTS, NOTIFICATIONS, STAFF, MENUS, STORE, SHIFTS, ME_STAFF_ID, NEXT_WEEK_START, THIS_WEEK_START, staffById, staffByDbId } from '../mocks/data.js';
+import { INGREDIENTS, ORDERS, SHORTAGE_REPORTS, NOTIFICATIONS, STAFF, MENUS, STORE, SHIFTS, ME_STAFF_ID, NEXT_WEEK_START, THIS_WEEK_START, staffById, staffByDbId, registerStaff } from '../mocks/data.js';
 import { NEED, cellKey, generateDraft, rangesToAvail, rangesToSlots, slotsToRanges, warningCells } from '../domain/index.js';
 import { supabase } from '../lib/supabase.js';
 import * as api from '../lib/api.js';
@@ -87,11 +87,16 @@ export function AppStateProvider({ children }) {
 
   // DB 가능시간(availability_of 결과)을 화면 직원 목록에 반영
   const mergeStaff = (rows) => {
+    registerStaff(rows); // 화면 직원 목록에 없는 DB 직원을 추가
     const byDb = Object.fromEntries(rows.map((r) => [r.user_id, r]));
-    setStaff((prev) => prev.map((st) => {
-      const r = byDb[st.dbId];
-      return r ? { ...st, maxHours: Number(r.max_weekly_hours ?? st.maxHours), avail: rangesToAvail(r.ranges), submitted: r.submitted ?? st.submitted } : st;
-    }));
+    setStaff((prevList) => {
+      const known = new Set(prevList.map((s) => s.id));
+      const prev = [...prevList, ...STAFF.filter((s) => !known.has(s.id))];
+      return prev.map((st) => {
+        const r = byDb[st.dbId];
+        return r ? { ...st, maxHours: Number(r.max_weekly_hours ?? st.maxHours), avail: rangesToAvail(r.ranges), submitted: r.submitted ?? st.submitted } : st;
+      });
+    });
   };
 
   const applyMyAvail = (r) => {
@@ -109,6 +114,7 @@ export function AppStateProvider({ children }) {
       setSchedState('none'); setAssign({}); setEdited([]);
       return;
     }
+    registerStaff(res.staff); // 배정 표시 전에 DB 직원을 먼저 등록한다(목록에 없는 직원도 보이게)
     const nextAssign = {};
     const nextNeed = {};
     res.cells.forEach((c) => {
@@ -132,6 +138,7 @@ export function AppStateProvider({ children }) {
     setEdited(rows?.edited ?? []);
     // 이번 주는 확정·공개된 근무표만 쓴다(알바생은 DB 권한상 확정분만 읽을 수 있다)
     const cur = await api.fetchSchedule(STORE.dbId, THIS_WEEK_START, SHIFT_ARGS);
+    registerStaff(cur?.staff);
     const assign = {};
     const need = {};
     (cur?.cells ?? []).forEach((c) => { assign[cellKey(c.day, c.shift)] = c.user_ids.map((uid) => staffByDbId[uid]?.id).filter(Boolean); need[cellKey(c.day, c.shift)] = c.need; });

@@ -90,11 +90,21 @@ export const STAFF = [
   { id: 's4', userId: 5, dbId: 5, name: '이도현', role: '알바생', wage: 10500, maxHours: 20, status: '활성', phone: '010-3***-5523', avail: { 1: [8, 17], 3: [8, 17], 6: [8, 17] } },
   { id: 's5', userId: 6, dbId: 6, name: '최하은', role: '알바생', wage: 10320, maxHours: 16, status: '활성', phone: '010-9***-7781', avail: { 2: [14, 22], 5: [12, 22], 6: [14, 22] } },
   { id: 's6', userId: 7, dbId: 7, name: '한지우', role: '알바생', wage: 10320, maxHours: 24, status: '초대됨', phone: '010-4***-3367', avail: { 1: [12, 22], 3: [12, 22], 5: [8, 17], 6: [8, 17] } },
-  { id: 's7', userId: 49, dbId: 49, name: '송다은', role: '알바생', wage: 10320, maxHours: 20, status: '활성', phone: '010-3***-5512', avail: { 1: [12, 22], 2: [12, 22], 3: [12, 22], 6: [8, 17] } },
-  { id: 's8', userId: 50, dbId: 50, name: '윤태오', role: '알바생', wage: 10320, maxHours: 20, status: '활성', phone: '010-8***-2046', avail: { 3: [8, 17], 4: [14, 22], 5: [8, 17] } },
 ];
 export const staffById = Object.fromEntries(STAFF.map((s) => [s.id, s]));
 export const staffByDbId = Object.fromEntries(STAFF.map((s) => [s.dbId, s]));
+// DB 에서 읽은 직원 중 위 목록에 없는 직원(7-1 에서 새로 등록한 직원 등)을 목록에 추가한다.
+// 위 세 값은 화면 전체가 같은 객체를 읽으므로, 이 함수가 제자리에서 채워 넣는다.
+export function registerStaff(rows) {
+  let added = false;
+  (rows ?? []).forEach((r) => {
+    if (!r?.name || staffByDbId[r.user_id]) return;
+    const s = { id: `d${r.user_id}`, userId: r.user_id, dbId: r.user_id, name: r.name, role: r.role, wage: Number(r.hourly_wage ?? 0),
+      maxHours: Number(r.max_weekly_hours ?? 0), status: r.status ?? '활성', phone: '', avail: {} };
+    STAFF.push(s); staffById[s.id] = s; staffByDbId[s.dbId] = s; added = true;
+  });
+  return added;
+}
 export const ME_STAFF_ID = 's2'; // 알바생 화면의 로그인 사용자(정윤수)
 
 // attendance — 이번 주 출퇴근 (예정 vs 실제, 시:분)

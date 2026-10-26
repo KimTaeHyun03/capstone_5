@@ -175,7 +175,7 @@ export function SalesStatusPage() {
                     <tr key={m.id}>
                       <th scope="row">{m.name}</th>
                       <td>{m.category}</td>
-                      <td className="num">{m.qty.toLocaleString()}잔</td>
+                      <td className="num">{m.qty.toLocaleString()}{m.category === '베이커리' ? '개' : '잔'}</td>
                       <td className="num">{won(m.amount)}</td>
                       <td className="num">{((m.amount / menuTotal) * 100).toFixed(1)}%</td>
                     </tr>

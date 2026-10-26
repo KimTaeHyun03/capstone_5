@@ -68,6 +68,41 @@ export function useOperations() {
     } else commit({...demoRef.current,sales:[...demoRef.current.sales,...valid.map(r=>({...r,sale_id:crypto.randomUUID()}))]});
     return valid.length;
   };
+  // 7-2·7-3·7-4 CSV 일괄 등록. 실제 매장은 DB 함수(한 트랜잭션: 한 행이라도 틀리면 전부 취소), 체험 모드는 이 브라우저에만 저장한다.
+  // 재료·메뉴는 같은 이름이 있으면 수정, 없으면 새로 만든다. 레시피는 CSV 에 나온 메뉴만 통째로 바꾼다.
+  const importCatalog = async (kind, rows) => {
+    if (mode === 'live') {
+      const { data, error: err } = await supabase.rpc('ops_import_catalog', { p_kind: kind, p_rows: rows });
+      if (err) throw new Error(err.message);
+      await refresh();
+      return data;
+    }
+    const next = structuredClone(demoRef.current);
+    const key = (s) => String(s).trim().toLowerCase();
+    let created = 0, updated = 0;
+    if (kind === 'recipe') {
+      const byMenu = {};
+      rows.forEach((r) => {
+        const m = next.menus.find((x) => key(x.name) === key(r.menu));
+        const i = next.ingredients.find((x) => key(x.name) === key(r.ingredient));
+        if (!m) throw new Error(`메뉴 "${r.menu}"을(를) 찾을 수 없습니다.`);
+        if (!i) throw new Error(`재료 "${r.ingredient}"을(를) 찾을 수 없습니다.`);
+        (byMenu[m.id] ||= []).push([i.id, r.qty]);
+      });
+      Object.entries(byMenu).forEach(([id, lines]) => { next.recipes[id] = lines; updated += 1; });
+    } else {
+      const field = kind === 'menu' ? 'menus' : 'ingredients';
+      rows.forEach((r) => {
+        const old = next[field].find((x) => key(x.name) === key(r.name));
+        const id = old ? old.id : crypto.randomUUID();
+        const record = { stock: 0, use: 0, factor: 1, sold: 0, ...old, ...r, id };
+        next[field] = old ? next[field].map((x) => (x.id === id ? record : x)) : [...next[field], record];
+        if (old) updated += 1; else created += 1;
+      });
+    }
+    commit(next);
+    return { created, updated };
+  };
   const save = async (kind, input, remove = false) => {
     const item = {...input};
     if (!remove && kind !== 'recipe') {
@@ -135,7 +170,7 @@ export function useOperations() {
   };
   return { ...current, mode, configured:!!supabase, ready, session, profile:mode==='live'?remote?.profile:null, loading,error,week,setWeek,range,setRange,refresh,
     summary:mode==='demo'?summarizeSales(current.sales).filter(s=>s.base_date>=range.from && s.base_date<=range.to):current.summary,
-    importSales,save,saveAvailability,invite,
+    importSales,importCatalog,save,saveAvailability,invite,
     startDemo:()=>{generation.current++;setMode('demo');setError('');setLoading(false);},
     startLive:()=>{setMode('live');setError('');},
     signIn:async(email,password)=>{const {error:err}=await supabase.auth.signInWithPassword({email,password});if(err)throw err;setMode('live');},

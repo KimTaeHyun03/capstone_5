@@ -132,7 +132,7 @@ export function Field({ id, label, required, help, error, children }) {
 }
 
 export function Meter({ value, max, level }) {
-  return <span className={`meter ${level === 'low' ? 'is-low' : level === 'warn' ? 'is-warn' : ''}`} aria-hidden="true"><span style={{ width: `${Math.min(100, (value / max) * 100)}%` }} /></span>;
+  return <span className={`meter ${level === 'low' ? 'is-low' : level === 'warn' ? 'is-warn' : ''}`} aria-hidden="true"><span style={{ width: `${Math.max(0, Math.min(100, (value / max) * 100))}%` }} /></span>;
 }
 
 /* 표 페이지 나누기 — 쪽 번호는 5개씩 묶어 보여 주고, 처음·끝·10쪽 앞뒤로 건너뛰는 버튼을 둔다. page 는 0부터 */

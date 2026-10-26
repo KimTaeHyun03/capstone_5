@@ -16,12 +16,19 @@ export function InventoryPage() {
   const base = useBase();
   const p = useRolePath();
   const list = inventory.filter((i) => filter === 'all' || stockLevel(i) === filter);
-  const value = inventory.reduce((a, i) => a + i.stock * i.price, 0);
+  const value = inventory.reduce((a, i) => a + Math.max(0, i.stock) * i.price, 0);
+  // 처음 재고를 채우기 전에 판매가 먼저 들어오면 재고가 0 아래로 내려간다. 놀라지 않게 이유와 해결 방법을 알려 준다.
+  const negative = inventory.filter((i) => i.stock < 0);
   return (
     <>
       <PageHead eyebrow="재고 관리 · 4-2" title="재고 현황" desc="판매 시 레시피 소요량만큼 자동 차감된 현재 재고입니다."
         actions={base === '/manager' ? <Button icon="clipboard" to={p('stocktake')}>실사·폐기 기록</Button> : <Button icon="truck" to={p('order/recommend')}>권장 발주 보기</Button>} />
       <div className="stack-lg">
+        {negative.length > 0 && (
+          <Alert tone="warning" title={`재고가 0보다 작은 재료가 ${negative.length}개 있습니다`}>
+            {negative.map((i) => i.name).join(', ')} — 처음 재고를 채우기 전에 판매 기록이 먼저 들어오면 이렇게 됩니다. 실사·폐기 기록에서 실제로 센 수량을 입력하면 바로잡힙니다.
+          </Alert>
+        )}
         <div className="grid-3">
           <StatCard label="관리 품목" value={inventory.length} unit="개" />
           <StatCard label="최소 보유량 미달" value={inventory.filter((i) => stockLevel(i) === 'low').length} unit="개" sub="부족 알림 발송됨" />

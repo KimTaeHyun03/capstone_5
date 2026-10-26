@@ -32,7 +32,7 @@ export function validateSales(rows, menus, existing = []) {
       if (seen.has(key)) throw new Error('동일 결제번호·메뉴가 이미 있습니다. 수량을 한 행으로 합쳐 주세요.');
       seen.add(key);
       const raw = String(r.sold_at).trim();
-      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?$/.test(raw)) throw new Error('판매일시 형식이 올바르지 않습니다.');
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?$/.test(raw)) throw new Error('판매일시 형식이 올바르지 않습니다.');
       const time = new Date(/(Z|[+-]\d{2}:\d{2})$/.test(raw) ? raw : `${raw}+09:00`);
       if (!Number.isFinite(time.getTime()) || time > new Date()) throw new Error('판매일시는 현재 이전의 유효한 날짜여야 합니다.');
       const calendar = new Date(`${raw.slice(0, 10)}T00:00:00Z`);

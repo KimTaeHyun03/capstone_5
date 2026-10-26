@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { parseSalesCSV,validateSales,summarizeSales,covers,availabilityFor,recipeCost,monday,addDays } from '../src/domain/operations.js';
 const menus=[{id:1,onSale:true,price:4500},{id:2,onSale:true,price:5000},{id:3,onSale:false}];
 const row={payment_no:'P1',menu_id:1,sold_at:'2026-01-01T09:00',quantity:2,amount:9000};
+test('validated rows can be validated again (CSV preview -> save re-validates ISO strings with milliseconds)',()=>{
+  const once=validateSales([{...row,sold_at:'2026-01-01T09:00:00+09:00'}],menus);
+  assert.equal(once[0].sold_at,'2026-01-01T00:00:00.000Z');
+  const twice=validateSales(once,menus);
+  assert.deepEqual(twice,once);
+});
 test('CSV BOM, CRLF, quoted comma and escaped quote',()=>{
   const rows=parseSalesCSV('\uFEFFpayment_no,menu_id,sold_at,quantity,amount\r\n"P,""1""",1,2026-01-01T09:00,2,9000\r\n');
   assert.equal(rows[0].payment_no,'P,"1"');

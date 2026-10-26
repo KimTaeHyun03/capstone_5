@@ -161,6 +161,8 @@ export function AppStateProvider({ children }) {
     }
     // 실제 매장: 예시 직원 대신 DB 직원으로 채운다(이전 사용자의 직원이 남지 않게 비우고 시작)
     clearStaffRegistry(); setStaff([]); setThisWeek(null); setSchedState('none'); setAssign({}); setEdited([]);
+    // 이전 로그인 사용자(또는 예시 정윤수)의 가능시간·제출 상태가 다음 사용자 화면에 남지 않게 비우고 시작한다. 본인 값은 아래에서 DB로 채운다.
+    setMyAvail(Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((d) => [d, [0, 0, 0]]))); setMyMaxHours(20); setAvailSubmitted(false); setClock({ in: null, out: null });
     reloadInventory(); reloadOrders(); reloadCorrection(); reloadRecs(); reloadReports();
     // 레이아웃이 먼저 요청한 알림 응답은 위에서 세대가 바뀌며 버려지므로, 같은 사용자로 한 번 더 읽는다(alertUser 는 레이아웃이 먼저 채워 둠)
     loadAlerts();

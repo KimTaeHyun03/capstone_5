@@ -28,6 +28,12 @@ const writeDemo = (email) => {
   try { email ? localStorage.setItem(DEMO_KEY, email) : localStorage.removeItem(DEMO_KEY); } catch { /* 저장 못 해도 이번 탭에서는 로그인 유지 */ }
 };
 
+// 초대·비밀번호 재설정 링크로 들어왔는지(비밀번호를 정하기 전인지)는 새로고침해도 유지되게 이 탭의 sessionStorage 에 둔다
+const PW_KEY = 'needs-password';
+export const markPasswordLink = () => { try { sessionStorage.setItem(PW_KEY, '1'); } catch { /* 저장 못 하면 이번 화면에서만 적용 */ } };
+const readNeedsPassword = () => { try { return sessionStorage.getItem(PW_KEY) === '1'; } catch { return false; } };
+const clearNeedsPassword = () => { try { sessionStorage.removeItem(PW_KEY); } catch { /* 무시 */ } };
+
 const Ctx = createContext(null);
 export const useAuth = () => useContext(Ctx);
 
@@ -35,6 +41,7 @@ export function AuthProvider({ children }) {
   const demo = DEMO_LOGIN;
   const [session, setSession] = useState(undefined); // undefined = 확인 중
   const [account, setAccount] = useState(() => (demo ? readDemo() : undefined)); // null = 연결된 계정 없음
+  const [needsPassword, setNeedsPassword] = useState(() => !demo && readNeedsPassword());
 
   useEffect(() => {
     if (demo) return;
@@ -81,13 +88,26 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     if (demo) { writeDemo(null); setAccount(null); return; }
+    clearNeedsPassword(); setNeedsPassword(false);
     await supabase.auth.signOut();
   }, [demo]);
+
+  // 초대·재설정 링크로 로그인된 사용자의 첫 비밀번호 설정. 성공하면 null, 실패하면 안내 문구를 돌려준다
+  const setPassword = useCallback(async (password) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      if (/same|different from the old/i.test(error.message)) return '이전과 다른 비밀번호를 입력하세요.';
+      if (/weak|at least|characters/i.test(error.message)) return '비밀번호가 너무 짧거나 쉬워요. 더 길고 복잡하게 입력하세요.';
+      return `비밀번호를 설정하지 못했습니다. (${error.message})`;
+    }
+    clearNeedsPassword(); setNeedsPassword(false);
+    return null;
+  }, []);
 
   const loading = !demo && (!checked || (!!userId && account === undefined));
   const value = demo
     ? { demo, loading: false, session: account ? { user: { email: account.email } } : null, account, signIn, signOut }
-    : { demo, loading, session, account, signIn, signOut };
+    : { demo, loading, session, account, signIn, signOut, needsPassword, setPassword };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

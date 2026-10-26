@@ -78,9 +78,9 @@ export function ScheduleGrid({ assign, need: needMap = NEED, edited = [], locked
                 return (
                   <button key={k} type="button" className={`sched-cell ${short ? 'is-short' : ''} ${edited.includes(k) ? 'is-edited' : ''}`}
                     disabled={locked} onClick={() => onEdit?.(di, s)}
-                    aria-label={`${d}요일 ${s.label}, 필요 ${need}명, 배정 ${ids.length}명${ids.length ? `: ${ids.map((id) => staffById[id].name).join(', ')}` : ''}${short ? ', 인원 부족' : ''}${locked ? '' : ', 눌러서 수정'}`}>
+                    aria-label={`${d}요일 ${s.label}, 필요 ${need}명, 배정 ${ids.length}명${ids.length ? `: ${ids.map((id) => staffById[id]?.name).join(', ')}` : ''}${short ? ', 인원 부족' : ''}${locked ? '' : ', 눌러서 수정'}`}>
                     <span className={`sched-need ${short ? 'short' : ''}`}><span>필요 {need}</span><span>{short ? `${need - ids.length}명 부족` : '충족'}</span></span>
-                    {ids.map((id) => <span key={id} className={`chip ${staffById[id].role === '매니저' ? 'mgr' : ''}`} style={highlight === id ? { outline: '2px solid var(--primary)' } : undefined}>{staffById[id].name}</span>)}
+                    {ids.filter((id) => staffById[id]).map((id) => <span key={id} className={`chip ${staffById[id].role === '매니저' ? 'mgr' : ''}`} style={highlight === id ? { outline: '2px solid var(--primary)' } : undefined}>{staffById[id].name}</span>)}
                   </button>
                 );
               })}

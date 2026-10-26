@@ -6,6 +6,7 @@ import { DAYS, HOURS, NEXT_RANGE, TODAY, OWNER } from '../../mocks/data.js';
 import { man, pct, recommendQty, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useAuth } from '../../lib/auth.jsx';
+import { AiInsight } from '../ai/AiInsight.jsx';
 import { generateForecast, nextWeekStart, rangeLabel, useSales } from './useSales.js';
 
 const sum = (rows) => rows.flat().reduce((a, b) => a + b, 0);
@@ -207,6 +208,7 @@ export function ForecastPage() {
       {head}
       <div className="stack-lg">
         {runAlert}
+        <AiInsight kind="forecast_brief" title="AI 주간 브리핑" hint="다음 주 예측을 직전 주 실적과 비교해 피크 요일·시간대와 증원 검토 시간대를 요약합니다." />
         {stale && (
           <Alert tone="info" title="다음 주 예측이 아직 없습니다">
             지금 보이는 것은 {rangeLabel(fc.dates)} 예측입니다. ‘다음 주 예측 계산’을 누르면 최근 매출로 새 예측을 만듭니다.

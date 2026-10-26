@@ -8,6 +8,7 @@ import { useRolePath } from '../../layouts/Layouts.jsx';
 import { useNavigate } from 'react-router-dom';
 import { calculateRecommendations, nextMonday, placeOrder, receiveOrder } from '../../lib/orders.js';
 import { useDbUserId } from '../../lib/currentUser.js';
+import { AiInsight } from '../ai/AiInsight.jsx';
 
 /* 5-1 · 5-2 · 권장 발주량 확인·발주 등록 (점주) */
 export function RecommendPage() {
@@ -78,6 +79,7 @@ export function RecommendPage() {
       <PageHead eyebrow="발주 관리 · 5-1 · 5-2" title="권장 발주" desc="다음 주 예상 소진량과 보정 계수로 계산한 권장량입니다. 수량을 고친 뒤 발주를 등록하세요." />
       <div className="stack-lg">
         <Alert tone="info" title="권장 발주량 = 예상 소진량 × 보정 계수 − 현재 재고">발주 단위로 올림한 값입니다. 보정 계수는 최근 3주 예측 오차로 계산했습니다.{recsLoaded && Object.keys(recs).length > 0 && ` (계산 기준: ${new Date(Object.values(recs)[0].calculatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })})`}</Alert>
+        <AiInsight kind="order_explain" title="AI 발주 설명" hint="재료별 권장량이 왜 그 수량인지 예상 소진량·보정 계수·현재 재고 기준으로 설명합니다." />
         {badList.length > 0 && (
           <div className="alert alert-danger" role="alert">
             <div className="alert-body">
@@ -316,6 +318,7 @@ export function CorrectionPage() {
           </div>
           <p className="help" style={{ marginTop: 8 }}>보정 계수 = 3주 실제 소진 합 ÷ 예측 소진 합 (0.80 – 1.20 범위). 계산할 때마다 새 계수 행을 만들어 이력을 남깁니다.</p>
         </Panel>
+        <AiInsight kind="correction_report" title="AI 오차 리포트 요약" hint="지난 기간의 예측 오차·폐기·보정 계수 변화를 요약하고 오차가 큰 재료를 짚어 줍니다." />
       </div>
     </>
   );

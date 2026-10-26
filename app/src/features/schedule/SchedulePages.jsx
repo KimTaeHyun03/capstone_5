@@ -3,6 +3,7 @@ import { Alert, Badge, Button, EmptyState, Modal, PageHead, Panel, SampleTag, Se
 import { DAYS, NEXT_DATES, NEXT_RANGE, OWNER, SHIFTS, STAFF, THIS_DATES, staffById } from '../../mocks/data.js';
 import { NEED, canWork, cellKey, fmtAvail, fmtRange, hoursOf, shiftHours, shortCells, supportCount, violations } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
+import { useAuth } from '../../lib/auth.jsx';
 import { useBase, useRolePath } from '../../layouts/Layouts.jsx';
 
 /* 2-2 · 가능시간 현황 (점주·매니저) */
@@ -172,6 +173,8 @@ function Steps({ state }) {
 
 /* 2-3 · 2-5 · 스케줄 초안 자동 생성·확정 (점주) */
 export function SchedulePage() {
+  const { account } = useAuth();
+  const myId = account?.id ?? OWNER.userId; // 로그인한 점주(확정·수정자)
   const { schedState: state, assign, need, staff, edited, setEdited, generateSchedule, notify, editScheduleCell, changeScheduleState } = useApp();
   const toast = useToast();
   const fail = saveFailed(toast);
@@ -198,13 +201,13 @@ export function SchedulePage() {
       setLoading(false);
     }
   };
-  const saveCell = (k, ids) => { editScheduleCell(k, ids, OWNER.userId).catch(fail); setEditing(null); toast('배정을 수정했습니다.'); };
+  const saveCell = (k, ids) => { editScheduleCell(k, ids, myId).catch(fail); setEditing(null); toast('배정을 수정했습니다.'); };
   const requestReview = () => { changeScheduleState('review').catch(fail); notify('근무표 초안 검토 요청을 매니저에게 보냈습니다'); toast('장윤서 매니저에게 검토를 요청했습니다.'); };
   // 2-5 · E4 위반이 있으면 확정하지 않는다(DB 트리거도 한 번 더 막는다)
   const publish = () => {
     setConfirm(false);
     if (viol.length) { toast('규칙 위반이 있어 확정할 수 없습니다.'); return; }
-    changeScheduleState('published', OWNER.userId).catch(fail);
+    changeScheduleState('published', myId).catch(fail);
     notify('다음 주 근무표가 확정·공개되었습니다'); toast('근무표를 확정하고 직원에게 공개했습니다.');
   };
 
@@ -231,7 +234,7 @@ export function SchedulePage() {
           </Alert>
         )}
         {state === 'published' && <Alert tone="success" title="다음 주 근무표가 공개되었습니다">알바생 앱의 근무표 탭에 표시되고, 근무 전날 리마인드 알림이 발송됩니다.</Alert>}
-        {state === 'review' && <Alert tone="info" title="장윤서 매니저가 초안을 검토하고 있습니다">검토가 끝나면 알림이 옵니다. 기다리지 않고 바로 확정할 수도 있습니다.</Alert>}
+        {state === 'review' && <Alert tone="info" title="매니저가 초안을 검토하고 있습니다">검토가 끝나면 알림이 옵니다. 기다리지 않고 바로 확정할 수도 있습니다.</Alert>}
         {viol.length > 0 && <Alert tone="danger" title={`규칙 위반 ${viol.length}건 — 확정할 수 없습니다`}>{viol.join(' · ')}</Alert>}
         {(state === 'draft' || state === 'review') && totalShort > 0 && (
           <Alert tone="warning" title={`인원 부족 시프트 ${short.length}곳 · 총 ${totalShort}명 부족`}>점선 칸을 눌러 배정을 조정하세요. 가능한 사람이 없으면 알바생을 추가로 모집하거나 점주가 직접 근무해야 합니다. 부족한 채로 확정할 수도 있습니다.</Alert>
@@ -275,14 +278,16 @@ export function SchedulePage() {
 
 /* 2-4 · 초안 검토·수정 (매니저) */
 export function ScheduleReviewPage() {
+  const { account } = useAuth();
+  const myId = account?.id ?? STAFF[0].userId; // 로그인한 매니저(수정자)
   const { schedState: state, assign, need, staff, edited, notify, editScheduleCell, changeScheduleState } = useApp();
   const toast = useToast();
   const fail = saveFailed(toast);
   const [editing, setEditing] = useState(null);
   const viol = violations(assign, staff);
   const short = shortCells(assign, need);
-  const saveCell = (k, ids) => { editScheduleCell(k, ids, STAFF[0].userId).catch(fail); setEditing(null); toast('배정을 수정했습니다. 규칙을 다시 확인했습니다.'); };
-  const done = () => { changeScheduleState('draft').catch(fail); notify('장윤서 매니저가 근무표 초안 검토를 마쳤습니다'); toast('검토 완료를 점주에게 알렸습니다.'); };
+  const saveCell = (k, ids) => { editScheduleCell(k, ids, myId).catch(fail); setEditing(null); toast('배정을 수정했습니다. 규칙을 다시 확인했습니다.'); };
+  const done = () => { changeScheduleState('draft').catch(fail); notify(`${account?.name ?? ''} 매니저가 근무표 초안 검토를 마쳤습니다`); toast('검토 완료를 점주에게 알렸습니다.'); };
 
   return (
     <>

@@ -3,9 +3,10 @@ import { Navigate } from 'react-router-dom';
 import { Alert, Badge, Button, Field } from '../../components/ui/index.jsx';
 import { BrandMark } from '../../layouts/Layouts.jsx';
 import { DEMO_ACCOUNTS, DEMO_PASSWORD, ROLE_HOME, useAuth } from '../../lib/auth.jsx';
+import { LoginOrSignUp, RegisterStore } from './Onboarding.jsx';
 
 export default function EntryPage() {
-  const { demo, loading, session, account } = useAuth();
+  const { demo, loading, session, account, accountStatus } = useAuth();
   useEffect(() => { document.title = '로그인 · 카페 온기 운영 관리'; }, []);
 
   if (account) return <Navigate to={ROLE_HOME[account.role] || '/'} replace />;
@@ -16,13 +17,13 @@ export default function EntryPage() {
         <div className="entry-brand">
           <BrandMark />
           <h1 className="entry-title">감이 아니라 데이터로<br />발주하고 근무표 짜기</h1>
-          <p className="entry-desc">매장의 매출 패턴으로 다음 주 필요 인원과 재료 발주량을 계산합니다. 매장에서 받은 계정으로 로그인하세요.</p>
+          <p className="entry-desc">매장의 매출 패턴으로 다음 주 필요 인원과 재료 발주량을 계산합니다. 직원은 점주가 보낸 초대 메일로 시작하고, 점주는 아래에서 가입해 매장을 등록하세요.</p>
         </div>
         <div className="login-row">
-          {loading ? <p className="auth-loading" role="status">계정을 확인하는 중…</p> : session && !demo ? <NotLinked /> : <LoginForm />}
+          {loading ? <p className="auth-loading" role="status">계정을 확인하는 중…</p> : session && !demo ? (accountStatus === 'none' ? <RegisterStore /> : <NotLinked />) : <LoginOrSignUp LoginForm={LoginForm} />}
           {demo && <DemoAccounts />}
         </div>
-        <p className="entry-foot">계정이 없으면 점주에게 직원 계정 등록을 요청하세요.</p>
+        <p className="entry-foot">직원이라면 점주에게 초대를 요청하세요. 초대 메일의 링크로 들어와 비밀번호를 정하면 시작할 수 있어요.</p>
       </div>
     </main>
   );

@@ -183,6 +183,8 @@ export function SchedulePage() {
   const short = shortCells(assign, need);
   const totalShort = short.reduce((a, k) => a + need[k] - (assign[k] || []).length, 0);
   const viol = violations(assign, staff);
+  // 그 주 가능시간을 내지 않은 직원(DB 모드에서만 알 수 있음). 초안 자동 생성은 이들을 모든 시간 가능으로 본다.
+  const missing = staff.filter((s) => s.role !== '점주' && s.status !== '비활성' && s.submitted === false);
 
   const generate = async () => {
     setLoading(true); setGenErr('');
@@ -222,6 +224,12 @@ export function SchedulePage() {
       <Steps state={state} />
       <div className="stack-lg">
         {genErr && <Alert tone="danger" title="초안을 만들지 못했습니다" live>{genErr}</Alert>}
+        {missing.length > 0 && state !== 'published' && (
+          <Alert tone="info" title={`가능시간 미제출 ${missing.length}명 — 모든 시간 가능으로 보고 배정합니다`}
+            action={<Button variant="text" to={p('work/availability')}>가능시간 현황</Button>}>
+            {missing.map((s) => s.name).join(', ')} · 주 최대 근무시간 안에서 배정됩니다. 나중에 가능시간을 제출하면 ‘초안 다시 생성’으로 반영하세요.
+          </Alert>
+        )}
         {state === 'published' && <Alert tone="success" title="다음 주 근무표가 공개되었습니다">알바생 앱의 근무표 탭에 표시되고, 근무 전날 리마인드 알림이 발송됩니다.</Alert>}
         {state === 'review' && <Alert tone="info" title="장윤서 매니저가 초안을 검토하고 있습니다">검토가 끝나면 알림이 옵니다. 기다리지 않고 바로 확정할 수도 있습니다.</Alert>}
         {viol.length > 0 && <Alert tone="danger" title={`규칙 위반 ${viol.length}건 — 확정할 수 없습니다`}>{viol.join(' · ')}</Alert>}

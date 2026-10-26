@@ -142,6 +142,8 @@ export function AppStateProvider({ children }) {
       return;
     }
     reloadInventory(); reloadOrders(); reloadCorrection(); reloadRecs(); reloadReports();
+    // 레이아웃이 먼저 요청한 알림 응답은 위에서 세대가 바뀌며 버려지므로, 같은 사용자로 한 번 더 읽는다(alertUser 는 레이아웃이 먼저 채워 둠)
+    loadAlerts();
     api.fetchAvailability(dbUserId).then(guard((r) => r && applyMyAvail(r))).catch((e) => console.error('가능시간 조회 실패', e));
     reloadSchedule().catch((e) => console.error('스케줄 조회 실패', e));
   }, [live, dbUserId]); // eslint-disable-line react-hooks/exhaustive-deps

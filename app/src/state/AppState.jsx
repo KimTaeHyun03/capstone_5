@@ -71,7 +71,7 @@ export function AppStateProvider({ children }) {
       .catch((e) => console.warn('알림 조회 실패, 예시 데이터 사용:', e.message));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [staff, setStaff] = useState(STAFF);
-  // 이번 주 확정 근무표(2-6 알바생 조회). null = 예시 모드, { published, assign } = DB 에서 읽은 결과
+  // 이번 주 근무표(알바생 조회 2-6, 점주·매니저 근무표 조회). null = 예시 모드, { published, status, assign, need } = DB 에서 읽은 결과(status: 초안·검토중·확정, 없으면 null)
   const [thisWeek, setThisWeek] = useState(null);
   const [menus, setMenus] = useState(MENUS);
   const [clock, setClock] = useState({ in: null, out: null }); // 오늘 정윤수 출퇴근
@@ -133,8 +133,9 @@ export function AppStateProvider({ children }) {
     // 이번 주는 확정·공개된 근무표만 쓴다(알바생은 DB 권한상 확정분만 읽을 수 있다)
     const cur = await api.fetchSchedule(STORE.dbId, THIS_WEEK_START, SHIFT_ARGS);
     const assign = {};
-    (cur?.cells ?? []).forEach((c) => { assign[cellKey(c.day, c.shift)] = c.user_ids.map((uid) => staffByDbId[uid]?.id).filter(Boolean); });
-    setThisWeek({ published: cur?.status === '확정', assign });
+    const need = {};
+    (cur?.cells ?? []).forEach((c) => { assign[cellKey(c.day, c.shift)] = c.user_ids.map((uid) => staffByDbId[uid]?.id).filter(Boolean); need[cellKey(c.day, c.shift)] = c.need; });
+    setThisWeek({ published: cur?.status === '확정', status: cur?.status ?? null, assign, need });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 로그인 사용자가 바뀔 때마다(로그인·로그아웃·계정 전환) 그 사용자의 권한으로 다시 읽는다.

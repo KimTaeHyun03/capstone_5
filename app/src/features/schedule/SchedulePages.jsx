@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, EmptyState, Modal, PageHead, Panel, SampleTag, useToast } from '../../components/ui/index.jsx';
-import { DAYS, NEXT_DATES, NEXT_RANGE, OWNER, SHIFTS, STAFF, staffById } from '../../mocks/data.js';
+import { Alert, Badge, Button, EmptyState, Modal, PageHead, Panel, SampleTag, Segment, useToast } from '../../components/ui/index.jsx';
+import { DAYS, NEXT_DATES, NEXT_RANGE, OWNER, SHIFTS, STAFF, THIS_DATES, staffById } from '../../mocks/data.js';
 import { NEED, canWork, cellKey, fmtAvail, fmtRange, hoursOf, shiftHours, shortCells, supportCount, violations } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
-import { useRolePath } from '../../layouts/Layouts.jsx';
+import { useBase, useRolePath } from '../../layouts/Layouts.jsx';
 
 /* 2-2 · 가능시간 현황 (점주·매니저) */
 export function AvailabilityPage() {
@@ -57,14 +57,14 @@ export function AvailabilityPage() {
 }
 
 /* 공용 스케줄 그리드 */
-export function ScheduleGrid({ assign, need: needMap = NEED, edited = [], locked, onEdit, highlight }) {
+export function ScheduleGrid({ assign, need: needMap = NEED, edited = [], locked, onEdit, highlight, dates = NEXT_DATES }) {
   return (
     <>
       <div className="sched-wrap" tabIndex={0} role="region" aria-label="주간 스케줄, 가로로 스크롤할 수 있습니다">
         <div className="sched">
           <span />
           {DAYS.map((d, i) => (
-            <div key={d} className={`sched-head ${i >= 5 ? 'is-weekend' : ''}`}><span className="d">{d}</span><span className="dt">{NEXT_DATES[i]}</span></div>
+            <div key={d} className={`sched-head ${i >= 5 ? 'is-weekend' : ''}`}><span className="d">{d}</span><span className="dt">{dates[i]}</span></div>
           ))}
           {SHIFTS.map((s) => (
             <div key={s.id} style={{ display: 'contents' }}>
@@ -309,6 +309,45 @@ export function ScheduleReviewPage() {
         )}
       </div>
       {editing && <EditCellModal di={editing.di} shift={editing.s} assign={assign} onClose={() => setEditing(null)} onSave={saveCell} />}
+    </>
+  );
+}
+
+/* 점주·매니저 · 근무표 조회 — 이번 주·다음 주 전체 근무표(읽기 전용). 편성·수정은 각각 스케줄 편성(점주)·초안 검토(매니저)에서 한다 */
+const STATE_LABEL = { none: null, draft: '초안', review: '매니저 검토 중', published: '확정·공개' };
+const DB_STATUS_LABEL = { 초안: '초안', 검토중: '매니저 검토 중', 확정: '확정·공개' };
+export function ScheduleOverviewPage() {
+  const { schedState, assign, need, thisWeek } = useApp();
+  const base = useBase();
+  const isManager = base === '/manager';
+  const [week, setWeek] = useState('this');
+  const editPath = isManager ? `${base}/schedule` : `${base}/work/schedule`;
+  const isThis = week === 'this';
+  const hasSchedule = isThis ? !!thisWeek?.status : schedState !== 'none';
+  const label = isThis ? DB_STATUS_LABEL[thisWeek?.status] : STATE_LABEL[schedState];
+  const published = isThis ? !!thisWeek?.published : schedState === 'published';
+  const view = isThis ? { assign: thisWeek?.assign ?? {}, need: thisWeek?.need ?? {} } : { assign, need };
+  const range = isThis ? `${THIS_DATES[0]}(월) – ${THIS_DATES[6]}(일)` : NEXT_RANGE;
+  return (
+    <>
+      <PageHead eyebrow="근무 관리" title="근무표 조회" desc="이번 주와 다음 주 전체 근무표를 확인합니다. 배정을 바꾸려면 스케줄 편성(점주)·초안 검토(매니저)에서 수정하세요."
+        actions={<Button variant="secondary" icon="calendar" to={editPath}>{isManager ? '초안 검토·수정' : '스케줄 편성'}</Button>} />
+      <div className="stack-lg">
+        <Segment label="주 선택" value={week} onChange={setWeek} options={[{ value: 'this', label: '이번 주' }, { value: 'next', label: '다음 주' }]} />
+        {thisWeek === null && isThis ? (
+          <Panel id="ov-demo"><EmptyState icon="calendar" title="예시 모드에서는 이번 주 근무표가 없습니다">로그인하면 DB의 확정 근무표를 볼 수 있습니다.</EmptyState></Panel>
+        ) : !hasSchedule ? (
+          <Panel id="ov-empty"><EmptyState icon="calendar" title={`${isThis ? '이번 주' : '다음 주'} 근무표가 아직 없습니다`}>{isThis ? '이번 주 근무표가 만들어지지 않았습니다.' : '스케줄 편성에서 초안을 만들면 여기에 표시됩니다.'}</EmptyState></Panel>
+        ) : (
+          <>
+            {!published && <Alert tone="info" title={`${isThis ? '이번 주' : '다음 주'} 근무표는 아직 확정·공개 전입니다`}>현재 상태: {label}. 알바생에게는 확정·공개 후에 보입니다.</Alert>}
+            <Panel id="ov" title={range} actions={<Badge tone={published ? 'green' : 'orange'}>{label}</Badge>}>
+              <ScheduleGrid assign={view.assign} need={view.need} locked dates={isThis ? THIS_DATES : NEXT_DATES} />
+            </Panel>
+            <WeeklyHours assign={view.assign} />
+          </>
+        )}
+      </div>
     </>
   );
 }

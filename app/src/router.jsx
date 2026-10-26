@@ -7,7 +7,7 @@ import EntryPage from './features/auth/EntryPage.jsx';
 import { SalesRecords } from './features/sales/SalesRecords.jsx';
 import { AvailabilityOverview, AvailabilityEditor } from './features/schedule/AvailabilityOverview.jsx';
 import { OwnerDashboard, SalesStatusPage, ForecastPage } from './features/sales/SalesPages.jsx';
-import { AvailabilityPage, SchedulePage, ScheduleReviewPage } from './features/schedule/SchedulePages.jsx';
+import { AvailabilityPage, SchedulePage, ScheduleReviewPage, ScheduleOverviewPage } from './features/schedule/SchedulePages.jsx';
 import LaborPage from './features/attendance/LaborPage.jsx';
 import { InventoryPage, AlertsPage, StocktakePage } from './features/inventory/InventoryPages.jsx';
 import { RecommendPage, OrdersPage, ReceivePage, CorrectionPage } from './features/order/OrderPages.jsx';
@@ -29,6 +29,7 @@ export const router = createHashRouter([
       { path: 'sales/forecast', element: <ForecastPage /> },
       { path: 'work/availability', element: <AvailabilityOverview /> },
       { path: 'work/schedule', element: <SchedulePage /> },
+      { path: 'work/timetable', element: <ScheduleOverviewPage /> },
       { path: 'work/labor', element: <LaborPage /> },
       { path: 'stock/inventory', element: <InventoryPage /> },
       { path: 'stock/alerts', element: <AlertsPage /> },
@@ -48,6 +49,7 @@ export const router = createHashRouter([
       { path: 'availability', element: <AvailabilityOverview /> },
       { path: 'my-availability', element: <AvailabilityEditor /> },
       { path: 'schedule', element: <ScheduleReviewPage /> },
+      { path: 'timetable', element: <ScheduleOverviewPage /> },
       { path: 'inventory', element: <InventoryPage /> },
       { path: 'stocktake', element: <StocktakePage /> },
       { path: 'alerts', element: <AlertsPage /> },

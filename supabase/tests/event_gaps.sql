@@ -17,10 +17,11 @@ begin
   insert into user_account (store_id, login_id, password_hash, name, role, status) values (v_store, 'evt-mgr', 'x', '테스트매니저', '매니저', '활성') returning user_id into v_mgr;
   insert into user_account (store_id, login_id, password_hash, name, role, status) values (v_store, 'evt-staff', 'x', '테스트알바', '알바생', '활성') returning user_id into v_staff;
 
-  -- 지지난주 120,000 / 지난주 40,000 (월 9시) → 예측 64,000(필요 2명)이 지난주 기준(1명)보다 많음 = 증원 검토
-  -- 화요일 10시는 두 주 모두 60,000 → 필요 2명 그대로
+  -- 필요 인원 기준: 8만원 미만 1명 · 12만원 미만 2명 · 그 이상 3명 (app.required_staff)
+  -- 지지난주 150,000 / 지난주 70,000 (월 9시) → 예측 88,000(필요 2명)이 지난주 기준(1명)보다 많음 = 증원 검토
+  -- 화요일 10시는 두 주 모두 60,000 → 필요 1명 그대로
   insert into sales_summary (store_id, base_date, day_of_week, time_slot, sales_amount, order_count, is_confirmed) values
-    (v_store, v_target - 14, 0, 9, 120000, 10, true), (v_store, v_target - 7, 0, 9, 40000, 5, true),
+    (v_store, v_target - 14, 0, 9, 150000, 10, true), (v_store, v_target - 7, 0, 9, 70000, 5, true),
     (v_store, v_target - 13, 1, 10, 60000, 6, true),  (v_store, v_target - 6, 1, 10, 60000, 6, true);
   -- 알바생은 화요일 10~12시만 가능 → 월 9시는 가능한 사람이 없음
   insert into availability (user_id, day_of_week, start_time, end_time, registered_at, target_week) values (v_staff, 1, '10:00', '12:00', now(), v_target);

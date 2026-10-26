@@ -81,7 +81,7 @@ export function AppStateProvider({ children }) {
     const base = { 0: [0, 0, 1], 1: [0, 0, 1], 2: [0, 0, 1], 3: [0, 0, 1], 4: [0, 0, 1], 5: [0, 1, 1], 6: [0, 1, 1] };
     return base;
   });
-  const [myMaxHours, setMyMaxHours] = useState(staffById[ME_STAFF_ID].maxHours);
+  const [myMaxHours, setMyMaxHours] = useState(() => staffById[ME_STAFF_ID]?.maxHours ?? 20); // 예시 직원이 없는 실제 매장에서도 안전하게
   const [availSubmitted, setAvailSubmitted] = useState(false);
 
   const notify = (title) => setNotifications((p) => [{ id: `n${Date.now()}`, kind: 'system', title, at: '방금', read: false }, ...p]);
@@ -160,7 +160,7 @@ export function AppStateProvider({ children }) {
       return;
     }
     // 실제 매장: 예시 직원 대신 DB 직원으로 채운다(이전 사용자의 직원이 남지 않게 비우고 시작)
-    clearStaffRegistry(); setStaff([]); setThisWeek(null);
+    clearStaffRegistry(); setStaff([]); setThisWeek(null); setSchedState('none'); setAssign({}); setEdited([]);
     reloadInventory(); reloadOrders(); reloadCorrection(); reloadRecs(); reloadReports();
     // 레이아웃이 먼저 요청한 알림 응답은 위에서 세대가 바뀌며 버려지므로, 같은 사용자로 한 번 더 읽는다(alertUser 는 레이아웃이 먼저 채워 둠)
     loadAlerts();

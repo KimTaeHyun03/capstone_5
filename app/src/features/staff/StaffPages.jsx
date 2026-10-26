@@ -24,7 +24,7 @@ function DayRow({ di, dates, shift, status, coworkers }) {
       <span className={`day-pill ${status === 'today' ? 'is-today' : ''}`}><span className="day-pill-d">{DAYS[di]}</span><span className="day-pill-n">{dates[di].split('.')[1]}</span></span>
       <div className="list-main">
         <span className="list-title">{s.label} {fmtRange([s.start, s.end])} <span className="muted" style={{ fontWeight: 400 }}>· {s.end - s.start}시간</span></span>
-        <span className="list-sub od-truncate">함께 근무: {coworkers.length ? coworkers.map((id) => staffById[id].name).join(', ') : '없음'}</span>
+        <span className="list-sub od-truncate">함께 근무: {coworkers.length ? coworkers.map((id) => staffById[id]?.name).filter(Boolean).join(', ') : '없음'}</span>
       </div>
       {status === 'done' && <Badge>완료</Badge>}
       {status === 'today' && <Badge tone="blue">오늘</Badge>}

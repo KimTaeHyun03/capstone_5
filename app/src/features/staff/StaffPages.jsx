@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Field, Icon, Modal, Segment, useToast } from '../../components/ui/index.jsx';
-import { DAYS, NEXT_DATES, NEXT_RANGE, SHIFTS, THIS_DATES, TODAY, ME_STAFF_ID, staffById, MY_SHIFTS_DONE } from '../../mocks/data.js';
+import { DAYS, NEXT_DATES, NEXT_RANGE, SHIFTS, THIS_DATES, TODAY, ME_STAFF_ID, staffById, staffByDbId, MY_SHIFTS_DONE } from '../../mocks/data.js';
 import { cellKey, fmtRange, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { submitShortageReport } from '../../lib/alerts.js';
@@ -33,20 +33,30 @@ function DayRow({ di, dates, shift, status, coworkers }) {
 
 /* 2-6 · 확정 근무표 조회 */
 export function StaffSchedule() {
-  const { schedState, assign } = useApp();
+  const { schedState, assign, thisWeek } = useApp();
+  const dbUserId = useDbUserId();
+  const me = (dbUserId && staffByDbId[dbUserId]) || ME; // 로그인한 직원(화면 직원 목록에 없으면 예시 직원)
   const [week, setWeek] = useState('this');
-  const today = THIS_WEEK.find((w) => w.status === 'today') ?? THIS_WEEK.find((w) => w.status === 'next') ?? THIS_WEEK[THIS_WEEK.length - 1];
-  const ts = shiftOf(today.shift);
-  const todayLabel = today.status === 'today' ? '오늘' : `${DAYS[today.di]}요일`;
+  const statusOf = (di) => (di < TODAY.dayIndex ? 'done' : di === TODAY.dayIndex ? 'today' : 'next');
+  // 이번 주: DB 에서 읽었으면 확정 근무표에서 내 근무를 뽑고, 예시 모드면 예시 근무를 쓴다
+  const thisList = thisWeek
+    ? DAYS.flatMap((_, di) => SHIFTS.filter((s) => (thisWeek.assign[cellKey(di, s.id)] || []).includes(me.id))
+        .map((s) => ({ di, shift: s.id, status: statusOf(di), coworkers: thisWeek.assign[cellKey(di, s.id)].filter((id) => id !== me.id) })))
+    : THIS_WEEK.map((w) => ({ ...w, coworkers: COWORKERS[w.di] || [] }));
+  const today = thisList.find((w) => w.status === 'today') ?? thisList.find((w) => w.status === 'next') ?? thisList[thisList.length - 1];
+  const ts = today && shiftOf(today.shift);
+  const todayLabel = today?.status === 'today' ? '오늘' : `${DAYS[today?.di]}요일`;
   const next = schedState === 'published'
-    ? DAYS.flatMap((_, di) => SHIFTS.filter((s) => (assign[cellKey(di, s.id)] || []).includes(ME.id)).map((s) => ({ di, shift: s.id, coworkers: assign[cellKey(di, s.id)].filter((id) => id !== ME.id) })))
+    ? DAYS.flatMap((_, di) => SHIFTS.filter((s) => (assign[cellKey(di, s.id)] || []).includes(me.id)).map((s) => ({ di, shift: s.id, coworkers: assign[cellKey(di, s.id)].filter((id) => id !== me.id) })))
     : null;
-  const total = THIS_WEEK.reduce((a, w) => a + (shiftOf(w.shift).end - shiftOf(w.shift).start), 0);
+  const total = thisList.reduce((a, w) => a + (shiftOf(w.shift).end - shiftOf(w.shift).start), 0);
+  const noThisWeek = thisWeek && !thisWeek.published;
   return (
     <>
       <div className="hello">
-        <span className="hello-name">{ME.name} 님, {todayLabel} {ts.label} 근무예요</span>
-        <span className="hello-sub">{today.status === 'today' ? TODAY.label : `${THIS_DATES[today.di]}(${DAYS[today.di]})`} {fmtRange([ts.start, ts.end])} · 출근 전 출퇴근 탭에서 기록하세요</span>
+        <span className="hello-name">{today ? `${me.name} 님, ${todayLabel} ${ts.label} 근무예요` : `${me.name} 님`}</span>
+        <span className="hello-sub">{!today ? (noThisWeek ? '이번 주 근무표가 아직 공개되지 않았어요' : '이번 주에는 배정된 근무가 없어요')
+          : `${today.status === 'today' ? TODAY.label : `${THIS_DATES[today.di]}(${DAYS[today.di]})`} ${fmtRange([ts.start, ts.end])} · 출근 전 출퇴근 탭에서 기록하세요`}</span>
       </div>
       <Segment label="주 선택" value={week} onChange={setWeek} options={[{ value: 'this', label: '이번 주' }, { value: 'next', label: '다음 주' }]} />
       {week === 'this' ? (
@@ -55,9 +65,11 @@ export function StaffSchedule() {
             <strong>{THIS_DATES[0]} – {THIS_DATES[6]}</strong>
             <span className="push muted od-nowrap" style={{ fontSize: 14 }}>총 {total}시간</span>
           </div>
-          <div className="list">
-            {THIS_WEEK.map((w) => <DayRow key={w.di} di={w.di} dates={THIS_DATES} shift={w.shift} status={w.status} coworkers={COWORKERS[w.di] || []} />)}
-          </div>
+          {thisList.length ? (
+            <div className="list">
+              {thisList.map((w) => <DayRow key={`${w.di}${w.shift}`} di={w.di} dates={THIS_DATES} shift={w.shift} status={w.status} coworkers={w.coworkers} />)}
+            </div>
+          ) : <p className="muted" style={{ padding: '16px 0' }}>{noThisWeek ? '이번 주 근무표가 아직 공개되지 않았습니다.' : '이번 주에는 배정된 근무가 없습니다.'}</p>}
         </section>
       ) : next ? (
         <section className="card" aria-label="다음 주 근무">

@@ -94,7 +94,8 @@ export function AppStateProvider({ children }) {
       const prev = [...prevList, ...STAFF.filter((s) => !known.has(s.id))];
       return prev.map((st) => {
         const r = byDb[st.dbId];
-        return r ? { ...st, maxHours: Number(r.max_weekly_hours ?? st.maxHours), avail: rangesToAvail(r.ranges), submitted: r.submitted ?? st.submitted } : st;
+        // 알바생에게는 이름·역할만 내려오므로(ranges 없음) 가능시간·최대 근무시간은 있을 때만 바꾼다
+        return r ? { ...st, maxHours: Number(r.max_weekly_hours ?? st.maxHours), avail: r.ranges ? rangesToAvail(r.ranges) : st.avail, submitted: r.submitted ?? st.submitted } : st;
       });
     });
   };

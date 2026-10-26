@@ -25,8 +25,13 @@ export function validateSales(rows, menus, existing = []) {
   const paymentTimes = new Map(existing.map(r => [r.payment_no, new Date(r.sold_at).toISOString()]));
   return rows.map((r, index) => {
     try {
-      const menu = menus.find(m => String(m.id) === String(r.menu_id));
-      if (!menu || !menu.onSale) throw new Error('판매 중인 메뉴 ID를 선택하세요.');
+      // 메뉴는 ID 또는 이름(menu_name 열)으로 지정할 수 있다. 실제 점주는 메뉴 ID를 모르므로 이름으로도 올릴 수 있게 한다
+      const byName = r.menu_name !== undefined;
+      const menu = byName
+        ? menus.find(m => String(m.name).trim().toLowerCase() === String(r.menu_name).trim().toLowerCase())
+        : menus.find(m => String(m.id) === String(r.menu_id));
+      if (!menu) throw new Error(byName ? `메뉴 "${r.menu_name}"을(를) 찾을 수 없습니다. 메뉴·레시피 화면에 등록한 이름과 같은지 확인하세요.` : '판매 중인 메뉴 ID를 선택하세요.');
+      if (!menu.onSale) throw new Error(`"${menu.name}"은(는) 판매 중인 메뉴가 아닙니다.`);
       const payment_no = required(r.payment_no, '결제번호', 30);
       const key = `${payment_no}|${menu.id}`;
       if (seen.has(key)) throw new Error('동일 결제번호·메뉴가 이미 있습니다. 수량을 한 행으로 합쳐 주세요.');
@@ -64,8 +69,10 @@ export function parseSalesCSV(text) {
     else { if (closed || c === '"') throw new Error('CSV 따옴표 형식이 잘못되었습니다.'); value += c; }
   }
   const headers = rows.shift()?.map(s => s.trim());
-  const expected = ['payment_no', 'menu_id', 'sold_at', 'quantity', 'amount'];
-  if (!headers || headers.length !== 5 || new Set(headers).size !== 5 || expected.some(h => !headers.includes(h))) throw new Error(`CSV 헤더는 ${expected.join(',')} 이어야 합니다.`);
+  // 메뉴 열은 menu_id(메뉴 번호) 또는 menu_name(메뉴 이름) 중 하나
+  const base = ['payment_no', 'sold_at', 'quantity', 'amount'];
+  const hasMenuCol = headers && (headers.includes('menu_id') !== headers.includes('menu_name'));
+  if (!headers || headers.length !== 5 || new Set(headers).size !== 5 || !hasMenuCol || base.some(h => !headers.includes(h))) throw new Error('CSV 헤더는 payment_no,menu_id(또는 menu_name),sold_at,quantity,amount 이어야 합니다.');
   return rows.map((r, i) => { if (r.length !== 5) throw new Error(`CSV ${i + 2}행의 열 수가 다릅니다.`); return Object.fromEntries(headers.map((h, j) => [h, r[j].trim()])); });
 }
 export function summarizeSales(sales) {

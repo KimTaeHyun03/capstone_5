@@ -9,6 +9,17 @@ test('validated rows can be validated again (CSV preview -> save re-validates IS
   const twice=validateSales(once,menus);
   assert.deepEqual(twice,once);
 });
+test('CSV accepts menu_name instead of menu_id and rejects unknown names or both columns',()=>{
+  const named=[{id:1,name:'아메리카노',onSale:true,price:4500},{id:2,name:'카페라떼',onSale:true,price:5000},{id:3,name:'단종',onSale:false}];
+  const nl='\n';
+  const rows=parseSalesCSV(['payment_no,menu_name,sold_at,quantity,amount','P1, 아메리카노 ,2026-01-01T09:00,2,9000','P2,카페라떼,2026-01-01T09:05,1,5000',''].join(nl));
+  const out=validateSales(rows,named);
+  assert.deepEqual(out.map(r=>r.menu_id),[1,2]);
+  assert.throws(()=>validateSales([{...rows[0],menu_name:'없는메뉴'}],named),/찾을 수 없습니다/);
+  assert.throws(()=>validateSales([{...rows[0],menu_name:'단종'}],named),/판매 중인 메뉴가 아닙니다/);
+  assert.throws(()=>parseSalesCSV(['payment_no,menu_id,menu_name,sold_at,quantity,amount','P1,1,a,2026-01-01T09:00,1,1',''].join(nl)),/헤더/);
+  assert.throws(()=>parseSalesCSV(['payment_no,sold_at,quantity,amount,extra','P1,2026-01-01T09:00,1,1,x',''].join(nl)),/헤더/);
+});
 test('CSV BOM, CRLF, quoted comma and escaped quote',()=>{
   const rows=parseSalesCSV('\uFEFFpayment_no,menu_id,sold_at,quantity,amount\r\n"P,""1""",1,2026-01-01T09:00,2,9000\r\n');
   assert.equal(rows[0].payment_no,'P,"1"');

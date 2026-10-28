@@ -5,6 +5,7 @@ import { OWNER, STAFF } from './mocks/data.js';
 import { RequireRole } from './lib/auth.jsx';
 import EntryPage from './features/auth/EntryPage.jsx';
 import { SalesRecords } from './features/sales/SalesRecords.jsx';
+import { EventsPage } from './features/sales/EventsPage.jsx';
 import { AvailabilityOverview, AvailabilityEditor } from './features/schedule/AvailabilityOverview.jsx';
 import { OwnerDashboard, SalesStatusPage, ForecastPage } from './features/sales/SalesPages.jsx';
 import { AvailabilityPage, SchedulePage, ScheduleReviewPage, ScheduleOverviewPage } from './features/schedule/SchedulePages.jsx';
@@ -27,6 +28,7 @@ export const router = createHashRouter([
       { path: 'sales/status', element: <SalesStatusPage /> },
       { path: 'sales/records', element: <SalesRecords /> },
       { path: 'sales/forecast', element: <ForecastPage /> },
+      { path: 'sales/events', element: <EventsPage /> },
       { path: 'work/availability', element: <AvailabilityOverview /> },
       { path: 'work/schedule', element: <SchedulePage /> },
       { path: 'work/timetable', element: <ScheduleOverviewPage /> },

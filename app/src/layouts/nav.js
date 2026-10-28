@@ -5,6 +5,7 @@ export const OWNER_NAV = [
     { path: 'sales/records', label: '판매 기록', proc: '1-1' },
     { path: 'sales/status', label: '매출 현황', proc: '1-2' },
     { path: 'sales/forecast', label: '매출 예측', proc: '1-3' },
+    { path: 'sales/events', label: '주변 행사', proc: '1-3 · E4' },
   ] },
   { id: 'work', label: '근무 관리', icon: 'calendar', items: [
     { path: 'work/availability', label: '가능시간 현황', proc: '2-2' },

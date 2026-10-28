@@ -78,7 +78,7 @@ export function EventsPage() {
           <Button variant="secondary" disabled={busy === 'geo'}
             onClick={() => run('geo', geocodeStore, '매장 위치를 저장했습니다.')}>{hasLoc ? '주소로 위치 다시 찾기' : '주소로 위치 찾기'}</Button>
           <Button disabled={busy === 'sync' || !hasLoc}
-            onClick={() => run('sync', () => syncEvents(28), (r) => `행사 ${r.fetched}건을 확인해 새 행사 ${r.added}건을 추가했습니다.`)}>주변 행사 불러오기</Button>
+            onClick={() => run('sync', () => syncEvents(28), (r) => `행사 ${r.fetched}건을 확인해 새 행사 ${r.added}건을 추가했습니다.${r.errors?.length ? ` (일부 출처 실패: ${r.errors.join(', ')})` : ''}`)}>주변 행사 불러오기</Button>
         </div>
       </Panel>
 

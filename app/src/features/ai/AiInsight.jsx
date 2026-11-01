@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import { Alert, Button, Panel } from '../../components/ui/index.jsx';
 import { fetchAiInsight } from '../../lib/ai.js';
-import { useAuth } from '../../lib/auth.jsx';
 import { supabase } from '../../lib/supabase.js';
 
 // AI 요약 카드. 숫자는 DB 계산 결과 그대로이고, AI 는 그 숫자를 문장으로 풀어 줄 뿐이다.
-// 체험(예시 데이터) 모드에서는 보내 줄 실제 데이터가 없으므로 버튼을 막는다.
 export function AiInsight({ kind, title = 'AI 요약', hint }) {
-  const { demo } = useAuth();
   const [state, setState] = useState({ status: 'idle' });
-  const unavailable = !supabase || demo;
+  const unavailable = !supabase;
 
   const run = async () => {
     setState({ status: 'loading' });
@@ -30,7 +27,7 @@ export function AiInsight({ kind, title = 'AI 요약', hint }) {
 
   return (
     <Panel title={title} actions={actions}>
-      {unavailable && <p className="help">DB에 로그인한 상태에서 사용할 수 있습니다. (예시 데이터에서는 비활성)</p>}
+      {unavailable && <p className="help">서버에 연결된 상태에서만 사용할 수 있습니다.</p>}
       {!unavailable && state.status === 'idle' && <p className="help">{hint || '현재 데이터를 바탕으로 핵심만 요약해 드립니다. 숫자는 위 표 그대로이며, AI는 해석만 덧붙입니다.'}</p>}
       {state.status === 'loading' && <p className="help" role="status">요약하는 중입니다…</p>}
       {state.status === 'error' && (

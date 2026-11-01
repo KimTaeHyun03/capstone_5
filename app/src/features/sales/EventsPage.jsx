@@ -49,6 +49,8 @@ export function EventsPage() {
   }
 
   const hasLoc = loc?.latitude != null;
+  // 저장된 반경 밖의 행사는(점주가 '반영'했거나 직접 등록한 것 제외) 목록에서 숨긴다
+  const shownEvents = events?.filter((e) => e.source === 'manual' || e.status === '반영' || e.distance_m == null || e.distance_m <= (loc?.event_radius_m ?? Infinity)) ?? null;
   const radiusValue = radius === '' ? (loc?.event_radius_m ?? 1000) : Number(radius);
   const radiusValid = Number.isInteger(radiusValue) && radiusValue >= 1;
   const saveRadius = () => run('radius', async () => {
@@ -98,17 +100,17 @@ export function EventsPage() {
         </div>
       </Panel>
 
-      <Panel title="앞으로의 행사" meta={events ? `${events.length}건` : ''}
+      <Panel title="앞으로의 행사" meta={shownEvents ? `${shownEvents.length}건` : ''}
         actions={<Button variant="secondary" icon="refresh" disabled={busy === 'refresh'}
           onClick={() => run('refresh', refreshForecast, '다음 주 예측과 권장 발주량을 다시 계산했습니다.')}>예측·발주 다시 계산</Button>}>
         {events === null && !error && <p role="status">불러오는 중…</p>}
-        {events?.length === 0 && <EmptyState icon="calendar" title="등록된 행사가 없습니다">주변 행사를 불러오거나 직접 등록하세요.</EmptyState>}
-        {events?.length > 0 && (
+        {shownEvents?.length === 0 && <EmptyState icon="calendar" title="등록된 행사가 없습니다">주변 행사를 불러오거나 직접 등록하세요.</EmptyState>}
+        {shownEvents?.length > 0 && (
           <div className="table-wrap">
             <table className="table">
               <thead><tr><th>행사</th><th>날짜</th><th>시간</th><th>거리</th><th>규모</th><th>가산</th><th>상태</th><th /></tr></thead>
               <tbody>
-                {events.map((e) => (
+                {shownEvents.map((e) => (
                   <tr key={e.event_id}>
                     <td>{e.title}{e.source === 'manual' && <> <Badge>직접</Badge></>}</td>
                     <td>{dateText(e)}</td><td>{timeText(e)}</td>

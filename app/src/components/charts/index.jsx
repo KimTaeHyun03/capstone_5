@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { DAYS, HOURS, FORECAST, NEXT_DATES } from '../../mocks/data.js';
-import { needStaff, man } from '../../domain/index.js';
+import { DAYS, HOURS } from '../../domain/constants.js';
+import { man } from '../../domain/index.js';
 import { Segment } from '../ui/index.jsx';
 
 /* 1-2 · 요일·시간대별 매출 히트맵 */
@@ -43,9 +43,8 @@ export function Heatmap({ data, caption }) {
 }
 
 /* 1-3 · 다음 주 시간대별 예측 + 필요 인원
-   forecast = { matrix(천원), staff(명), dates } — 비우면 예시 데이터 */
-const DEMO_FORECAST = { matrix: FORECAST, staff: FORECAST.map((r) => r.map(needStaff)), dates: NEXT_DATES };
-export function ForecastBars({ forecast = DEMO_FORECAST, initialDay = 5, actual = null }) {
+   forecast = { matrix(천원), staff(명), dates } */
+export function ForecastBars({ forecast, initialDay = 5, actual = null }) {
   const [day, setDay] = useState(initialDay);
   const row = forecast.matrix[day];
   const staff = forecast.staff[day];

@@ -1,32 +1,12 @@
-/* 0단계 · 인증 — Supabase Auth(이메일/비밀번호) + user_account 연결
-   체험(demo) 모드: Supabase 환경변수가 없거나 VITE_DEMO_LOGIN=true 이면
-   Supabase Auth 대신 브라우저 안에서만 확인하는 테스트 계정으로 로그인한다 (DB 마이그레이션 적용 전 화면 확인용). */
+/* 0단계 · 인증 — Supabase Auth(이메일/비밀번호) + user_account 연결 */
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from './supabase.js';
-import { OWNER, STAFF, STORE } from '../mocks/data.js';
 
 export const ROLE_HOME = { 점주: '/owner', 매니저: '/manager', 알바생: '/staff' };
 
 // password_hash 는 컬럼 권한으로 막혀 있으므로 '*' 대신 필요한 컬럼만 고른다
 const ACCOUNT_COLS = 'user_id, store_id, login_id, name, role, status, store:store_id (store_name)';
-
-// ----- 체험 모드 -----
-const DEMO_LOGIN = !supabase || import.meta.env.VITE_DEMO_LOGIN === 'true';
-export const DEMO_PASSWORD = '123456';
-export const DEMO_ACCOUNTS = [
-  { id: 1, email: 'owner@example.com', name: OWNER.name, role: '점주' },
-  { id: 2, email: 'jang@example.com', name: STAFF[0].name, role: '매니저' },
-  { id: 3, email: 'jung@example.com', name: STAFF[1].name, role: '알바생' },
-].map((a) => ({ ...a, storeId: 1, storeName: STORE.name }));
-const DEMO_KEY = 'demo-login';
-
-const readDemo = () => {
-  try { return DEMO_ACCOUNTS.find((a) => a.email === localStorage.getItem(DEMO_KEY)) || null; } catch { return null; }
-};
-const writeDemo = (email) => {
-  try { email ? localStorage.setItem(DEMO_KEY, email) : localStorage.removeItem(DEMO_KEY); } catch { /* 저장 못 해도 이번 탭에서는 로그인 유지 */ }
-};
 
 // 초대·비밀번호 재설정 링크로 들어왔는지(비밀번호를 정하기 전인지)는 새로고침해도 유지되게 이 탭의 sessionStorage 에 둔다
 const PW_KEY = 'needs-password';
@@ -37,27 +17,31 @@ const clearNeedsPassword = () => { try { sessionStorage.removeItem(PW_KEY); } ca
 const Ctx = createContext(null);
 export const useAuth = () => useContext(Ctx);
 
+// Supabase 환경변수(NEXT_PUBLIC_SUPABASE_URL·PUBLISHABLE_KEY)가 없으면 로그인할 수 없다 — 로컬 개발은 app/.env.local 에 넣는다
 export function AuthProvider({ children }) {
-  const demo = DEMO_LOGIN;
+  if (!supabase) return <p className="auth-loading" role="alert">서버 연결 설정(Supabase 환경변수)이 없어 시작할 수 없습니다.</p>;
+  return <AuthState>{children}</AuthState>;
+}
+
+function AuthState({ children }) {
   const [session, setSession] = useState(undefined); // undefined = 확인 중
-  const [account, setAccount] = useState(() => (demo ? readDemo() : undefined)); // null = 연결된 계정 없음
-  const [needsPassword, setNeedsPassword] = useState(() => !demo && readNeedsPassword());
+  const [account, setAccount] = useState(undefined); // null = 연결된 계정 없음
+  const [needsPassword, setNeedsPassword] = useState(readNeedsPassword);
   const [accountKey, setAccountKey] = useState(0); // 값이 바뀌면 user_account 를 다시 읽는다(매장 등록 직후)
   const [accountStatus, setAccountStatus] = useState('ok'); // 'ok' | 'none'(매장에 연결 안 됨 → 점주 온보딩) | 'inactive'(비활성)
 
   useEffect(() => {
-    if (demo) return;
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     // 콜백 안에서 Supabase 를 다시 호출하면 교착될 수 있어 세션만 저장하고 조회는 아래 effect 에서 한다
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
-  }, [demo]);
+  }, []);
 
   // 토큰 갱신 때마다 세션 객체가 바뀌므로 계정 조회는 사용자 ID 가 바뀔 때만 한다
   const checked = session !== undefined;
   const userId = session?.user?.id;
   useEffect(() => {
-    if (demo || !checked) return;
+    if (!checked) return;
     if (!userId) { setAccount(null); return; }
     let alive = true;
     setAccount(undefined);
@@ -72,28 +56,20 @@ export function AuthProvider({ children }) {
           : null);
       });
     return () => { alive = false; };
-  }, [demo, checked, userId, accountKey]);
+  }, [checked, userId, accountKey]);
 
   const signIn = useCallback(async (email, password) => {
-    if (demo) {
-      const found = DEMO_ACCOUNTS.find((a) => a.email === email.toLowerCase());
-      if (!found || password !== DEMO_PASSWORD) return '이메일 또는 비밀번호가 맞지 않습니다.';
-      writeDemo(found.email);
-      setAccount(found);
-      return null;
-    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (!error) return null;
     if (error.message.includes('Invalid login credentials')) return '이메일 또는 비밀번호가 맞지 않습니다.';
     if (error.message.includes('Email not confirmed')) return '이메일 인증이 아직 끝나지 않았습니다.';
     return `로그인하지 못했습니다. (${error.message})`;
-  }, [demo]);
+  }, []);
 
   const signOut = useCallback(async () => {
-    if (demo) { writeDemo(null); setAccount(null); return; }
     clearNeedsPassword(); setNeedsPassword(false);
     await supabase.auth.signOut();
-  }, [demo]);
+  }, []);
 
   // 점주 가입(이메일·비밀번호). 이메일 인증이 켜져 있으면 세션 없이 돌아오므로 인증 메일 안내를 돌려준다.
   const signUp = useCallback(async (email, password) => {
@@ -132,14 +108,12 @@ export function AuthProvider({ children }) {
     return null;
   }, []);
 
-  const loading = !demo && (!checked || (!!userId && account === undefined));
-  const value = demo
-    ? { demo, loading: false, session: account ? { user: { email: account.email } } : null, account, signIn, signOut }
-    : { demo, loading, session, account, accountStatus, signIn, signOut, signUp, registerStore, needsPassword, setPassword };
+  const loading = !checked || (!!userId && account === undefined);
+  const value = { loading, session, account, accountStatus, signIn, signOut, signUp, registerStore, needsPassword, setPassword };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-/* 역할별 라우트 가드 — 로그인 안 했으면 로그인 화면, 다른 역할이면 자기 홈으로 (체험 모드도 같다) */
+/* 역할별 라우트 가드 — 로그인 안 했으면 로그인 화면, 다른 역할이면 자기 홈으로 */
 export function RequireRole({ role, children }) {
   const { loading, account } = useAuth();
   if (loading) return <p className="auth-loading" role="status">계정을 확인하는 중…</p>;

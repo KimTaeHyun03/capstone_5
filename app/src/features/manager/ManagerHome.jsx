@@ -1,5 +1,5 @@
 import { Badge, Button, PageHead, Panel, StatCard } from '../../components/ui/index.jsx';
-import { TODAY } from '../../mocks/data.js';
+import { getCalendar } from '../../lib/calendar.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useAuth } from '../../lib/auth.jsx';
 
@@ -16,7 +16,7 @@ export default function ManagerHome() {
   ].filter(Boolean);
   return (
     <>
-      <PageHead eyebrow={`오늘 ${TODAY.label}`} title={`안녕하세요, ${account?.name ?? ''} 매니저님`} desc="오늘 처리할 일입니다. 항목을 누르면 해당 화면으로 이동합니다." />
+      <PageHead eyebrow={`오늘 ${getCalendar().TODAY.label}`} title={`안녕하세요, ${account?.name ?? ''} 매니저님`} desc="오늘 처리할 일입니다. 항목을 누르면 해당 화면으로 이동합니다." />
       <div className="stack-lg">
         <div className="grid-3">
           <StatCard label="근무표 상태" value={{ none: '초안 전', draft: '점주 작성 중', review: '검토 요청', published: '확정' }[schedState]} to="/manager/schedule" />

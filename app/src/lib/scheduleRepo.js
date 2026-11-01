@@ -2,7 +2,8 @@
 // 화면 상태(assign: { '요일-시프트': [직원 id] }) ↔ DB 행 변환을 여기서만 한다.
 // 알림(notification) 기록은 DB 트리거가 상태 전환을 보고 자동으로 남긴다(마이그레이션 20261021000000).
 import { supabase } from './supabase.js';
-import { SHIFTS, staffById, staffByDbId } from '../mocks/data.js';
+import { SHIFTS } from '../domain/constants.js';
+import { staffById, staffByDbId } from '../state/staffRegistry.js';
 import { cellKey, pad2 } from '../domain/index.js';
 
 // work_schedule.status ↔ 화면 상태

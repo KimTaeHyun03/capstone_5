@@ -1,27 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Badge, PageHead, Panel, SampleTag, StatCard, Tabs } from '../../components/ui/index.jsx';
-import { ATTENDANCE, DAYS, PAYROLL, THIS_DATES, staffById } from '../../mocks/data.js';
-import { attendanceFlags, pct, won, workedHours } from '../../domain/index.js';
+import { Badge, PageHead, Panel, StatCard, Tabs } from '../../components/ui/index.jsx';
+import { pct, won } from '../../domain/index.js';
+import { getCalendar } from '../../lib/calendar.js';
 import { useApp } from '../../state/AppState.jsx';
 import { fetchLabor } from '../../lib/attendance.js';
 
 /* 3-3 · 예정·실제 인건비 비교 + 이번 주 출퇴근 기록 (점주) */
-// 예시 데이터(체험 모드·DB 조회 실패 시). 실제 매장 로그인에서는 직원 목록(staffById)이 DB 직원으로 바뀌므로 로드 시점에 한 번만 만든다.
-const SAMPLE = {
-  rows: PAYROLL.map((r) => ({ key: r.staffId, name: staffById[r.staffId].name, wage: staffById[r.staffId].wage, planHours: r.planHours, actualHours: r.actualHours })),
-  att: ATTENDANCE.map((a) => ({ id: a.id, name: staffById[a.staffId].name, dateLabel: `${THIS_DATES[a.day]}(${DAYS[a.day]})`, plan: a.plan, actual: a.actual, flags: attendanceFlags(a), hours: workedHours(a) })),
-  month: 10, weekRange: `${THIS_DATES[0]} – ${THIS_DATES[6]}`,
-};
+const emptyData = () => ({ rows: [], att: [], month: Number(getCalendar().TODAY.label.split('.')[0]), weekRange: '' });
 
 export default function LaborPage() {
   const { inventorySource } = useApp();
   const [tab, setTab] = useState('labor');
-  // DB 연결 시: 이번 달 예정(확정 근무 배정)·실제(출퇴근) 시간과 이번 주 출퇴근 기록을 DB에서 읽는다. 아니면 예시 데이터.
+  // 이번 달 예정(확정 근무 배정)·실제(출퇴근) 시간과 이번 주 출퇴근 기록을 DB에서 읽는다.
   const [live, setLive] = useState(null);
   useEffect(() => {
-    if (inventorySource === 'db') fetchLabor().then(setLive).catch((e) => console.warn('인건비 조회 실패, 예시 데이터 사용:', e.message));
+    if (inventorySource === 'db') fetchLabor().then(setLive).catch((e) => console.warn('인건비 조회 실패:', e.message));
   }, [inventorySource]);
-  const data = live ?? SAMPLE;
+  const data = live ?? emptyData();
   const rows = data.rows.map((r) => ({ ...r, plan: r.planHours * r.wage, actual: r.actualHours * r.wage }));
   const plan = rows.reduce((a, r) => a + r.plan, 0);
   const actual = rows.reduce((a, r) => a + r.actual, 0);
@@ -39,7 +34,7 @@ export default function LaborPage() {
         </div>
         <Tabs label="보기 선택" value={tab} onChange={setTab} tabs={[{ id: 'labor', label: '직원별 인건비' }, { id: 'att', label: '이번 주 출퇴근 기록' }]} />
         {tab === 'labor' ? (
-          <Panel id="lb" title="직원별 예정 vs 실제" meta={`${data.month}월 1일 – 오늘`} actions={live ? null : <SampleTag />}>
+          <Panel id="lb" title="직원별 예정 vs 실제" meta={`${data.month}월 1일 – 오늘`}>
             <div className="compare-bars" style={{ marginBottom: 24 }}>
               {rows.map((r) => (
                 <div className="cb-row" key={r.key}>

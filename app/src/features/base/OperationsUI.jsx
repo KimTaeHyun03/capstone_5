@@ -3,7 +3,7 @@ import { Alert, Button, Field, Modal, useToast } from '../../components/ui/index
 import { useApp } from '../../state/AppState.jsx';
 export function DataNotice() {
   const {ops}=useApp();
-  return <>{ops.mode==='demo' && <Alert title="로컬 체험 데이터">이 브라우저에 저장됩니다. 실제 매장 DB 저장·이메일 발송은 로그인 후 사용할 수 있습니다.</Alert>}{ops.loading && <p role="status">매장 데이터를 불러오는 중입니다…</p>}{ops.error && <Alert tone="danger" title="데이터를 불러오지 못했습니다" action={<Button onClick={ops.refresh}>다시 시도</Button>}>{ops.error}</Alert>}</>;
+  return <>{ops.loading && <p role="status">매장 데이터를 불러오는 중입니다…</p>}{ops.error && <Alert tone="danger" title="데이터를 불러오지 못했습니다" action={<Button onClick={ops.refresh}>다시 시도</Button>}>{ops.error}</Alert>}</>;
 }
 export function useAction() {
   const [busy,setBusy]=useState(false), [error,setError]=useState('');

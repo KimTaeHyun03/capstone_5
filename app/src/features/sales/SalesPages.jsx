@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Alert, Badge, Button, EmptyState, PageHead, Panel, SampleTag, Segment, StatCard, Icon, useToast } from '../../components/ui/index.jsx';
+import { Alert, Badge, Button, EmptyState, PageHead, Panel, Segment, StatCard, Icon, useToast } from '../../components/ui/index.jsx';
 import { Heatmap, ForecastBars } from '../../components/charts/index.jsx';
-import { DAYS, HOURS, NEXT_RANGE, TODAY, OWNER } from '../../mocks/data.js';
-import { man, menuUnit, pct, recommendQty, won } from '../../domain/index.js';
+import { DAYS, HOURS } from '../../domain/constants.js';
+import { getCalendar } from '../../lib/calendar.js';
+import { man, menuUnit, pct, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useAuth } from '../../lib/auth.jsx';
 import { AiInsight } from '../ai/AiInsight.jsx';
@@ -17,7 +18,7 @@ const peakOf = (rows) => {
 };
 const change = (next, last) => (last ? ((next - last) / last) * 100 : 0);
 // 예시 모드는 고정 문구, 연동 모드는 데이터의 실제 주차
-const forecastRange = (sales) => (sales.demo ? NEXT_RANGE : rangeLabel(sales.forecast.dates));
+const forecastRange = (sales) => rangeLabel(sales.forecast.dates);
 
 function Loading() {
   return <p className="auth-loading" role="status">매출 데이터를 불러오는 중…</p>;
@@ -25,11 +26,10 @@ function Loading() {
 function LoadError({ message, onRetry }) {
   return <Alert tone="danger" title="매출 데이터를 불러오지 못했습니다" action={<Button variant="secondary" icon="refresh" onClick={onRetry}>다시 시도</Button>}>{message}</Alert>;
 }
-const DataTag = ({ demo }) => (demo ? <SampleTag /> : null);
 
 /* 처음 시작하는 점주를 위한 시작 안내 — 실제 매장(DB)에서 아직 안 한 준비만 보여 준다. 모두 끝나면 사라진다 */
 function OnboardingChecklist({ ops, hasSales, hasStock }) {
-  if (ops.mode !== 'live' || ops.loading) return null;
+  if (ops.loading) return null;
   const menus = ops.menus ?? [];
   const steps = [
     { done: menus.length > 0, title: '메뉴 등록', desc: '파는 메뉴와 가격을 등록하세요.', to: '/owner/base/menu' },
@@ -62,15 +62,15 @@ function OnboardingChecklist({ ops, hasSales, hasStock }) {
 
 /* 대시보드 — 점주 홈 */
 export function OwnerDashboard() {
-  const { lowStock, reports, schedState, inventory, notifications, staff, ops } = useApp();
+  const { lowStock, reports, schedState, inventory, notifications, staff, ops, recs } = useApp();
   const { account } = useAuth();
   const sales = useSales();
-  const orderCount = inventory.filter((i) => recommendQty(i) > 0).length;
+  const orderCount = inventory.filter((i) => (recs[i.id]?.rec ?? 0) > 0).length;
   const schedBadge = { none: ['gray', '초안 없음'], draft: ['orange', '초안 작성 중'], review: ['blue', '매니저 검토 중'], published: ['green', '확정·공개됨'] }[schedState];
 
   // 다음 주 가능시간 제출 현황(직원 목록은 DB 에서 읽은 실제 직원)
   const submittedCount = staff.filter((s) => s.submitted === true).length;
-  const availSub = sales.demo ? '가능시간 제출 6명 중 5명' : staff.length ? `가능시간 제출 ${staff.length}명 중 ${submittedCount}명` : '직원을 초대하면 가능시간을 받아요';
+  const availSub = staff.length ? `가능시간 제출 ${staff.length}명 중 ${submittedCount}명` : '직원을 초대하면 가능시간을 받아요';
 
   const fc = sales.forecast;
   const peak = fc && peakOf(fc.matrix);
@@ -78,20 +78,20 @@ export function OwnerDashboard() {
 
   // 시간대별 예측 패널: 지난주·이번주·다음주 중 고른다 (예측이나 실적이 있는 주만)
   const [weekKey, setWeekKey] = useState('next');
-  const weekStarts = sales.demo ? { next: fc?.start ?? null } : { last: addDays(thisWeekStart(), -7), this: thisWeekStart(), next: nextWeekStart() };
-  const hasWeek = (k) => (k === 'next' && fc && sales.demo) || !!(sales.forecasts?.[weekStarts[k]] || sales.actuals?.[weekStarts[k]]);
+  const weekStarts = { last: addDays(thisWeekStart(), -7), this: thisWeekStart(), next: nextWeekStart() };
+  const hasWeek = (k) => !!(sales.forecasts?.[weekStarts[k]] || sales.actuals?.[weekStarts[k]]);
   const weekOptions = [['last', '지난주'], ['this', '이번주'], ['next', '다음주']].filter(([k]) => hasWeek(k)).map(([value, label]) => ({ value, label }));
   const activeKey = weekOptions.some((o) => o.value === weekKey) ? weekKey : (weekOptions.find((o) => o.value === 'next') || weekOptions[0])?.value;
   const shownStart = activeKey && weekStarts[activeKey];
-  const shownFc = sales.demo ? fc : sales.forecasts?.[shownStart];
-  const shownActual = sales.demo ? null : sales.actuals?.[shownStart] ?? null;
+  const shownFc = sales.forecasts?.[shownStart];
+  const shownActual = sales.actuals?.[shownStart] ?? null;
   const shownHasForecast = !!shownFc;
   const shown = shownFc || (shownActual ? { matrix: shownActual.map((r) => r.map(() => 0)), staff: shownActual.map((r) => r.map(() => 1)), more: null, start: shownStart, dates: weekDates(shownStart) } : null);
   const shownPeak = shown && peakOf(shownFc ? shown.matrix : shownActual);
 
   return (
     <>
-      <PageHead eyebrow={`오늘 ${TODAY.label}`} title={`안녕하세요, ${(account || OWNER).name} 점주님`}
+      <PageHead eyebrow={`오늘 ${getCalendar().TODAY.label}`} title={`안녕하세요, ${account?.name ?? ''} 점주님`}
         desc={fc ? `${forecastRange(sales)} 예측과 오늘 처리할 일을 모았습니다.` : '오늘 처리할 일을 모았습니다.'}
         actions={<Button icon="calendar" to="/owner/work/schedule">스케줄 편성</Button>} />
 
@@ -115,7 +115,7 @@ export function OwnerDashboard() {
         </div>
 
         <div className="grid-2">
-          <Panel id="db-fc" title="시간대별 예측" meta={shown ? `${rangeLabel(shown.dates)} · 예측 매출 · 필요 인원` : '예측 매출 · 필요 인원'} actions={<DataTag demo={sales.demo} />}>
+          <Panel id="db-fc" title="시간대별 예측" meta={shown ? `${rangeLabel(shown.dates)} · 예측 매출 · 필요 인원` : '예측 매출 · 필요 인원'}>
             {sales.loading ? <Loading /> : (
               <>
                 {weekOptions.length > 1 && <div style={{ marginBottom: 12 }}><Segment label="주 선택" value={activeKey} onChange={setWeekKey} options={weekOptions} /></div>}
@@ -172,17 +172,17 @@ export function SalesStatusPage() {
       {head}
       <div className="stack-lg">
         <Alert tone="info" title="판매 기록으로 저장한 판매가 반영됩니다">
-          판매 기록 화면에서 저장한 판매가 집계되어 이 화면에 나타납니다.{sales.demo ? ' 지금은 예시 매출입니다.' : ' 확정된 매출만 보여 줍니다.'}
+          판매 기록 화면에서 저장한 판매가 집계되어 이 화면에 나타납니다. 확정된 매출만 보여 줍니다.
         </Alert>
         <div className="grid-3">
           <StatCard label="주간 매출" value={man(total)} unit="만원" />
           <StatCard label="하루 평균" value={man(total / 7)} unit="만원" />
           <StatCard label="최고 매출 요일" value={`${DAYS[byDay.indexOf(maxDay)]}요일`} sub={`${man(maxDay)}만원`} />
         </div>
-        <Panel id="ss-hm" title="요일 × 시간대 매출" meta="단위: 천원" actions={<DataTag demo={sales.demo} />}>
+        <Panel id="ss-hm" title="요일 × 시간대 매출" meta="단위: 천원">
           <Heatmap data={data} caption={caption} />
         </Panel>
-        <Panel id="ss-menu" title="메뉴별 판매" meta={sales.demo ? '지난주' : rangeLabel(sales.last.dates)}>
+        <Panel id="ss-menu" title="메뉴별 판매" meta={rangeLabel(sales.last.dates)}>
           {menus.length === 0 ? (
             <EmptyState icon="inbox" title="이 기간의 판매 기록이 없습니다">메뉴별 판매는 판매 기록을 저장하면 표시됩니다.</EmptyState>
           ) : (
@@ -230,7 +230,7 @@ export function ForecastPage() {
       setRunning(false);
     }
   };
-  const runButton = !sales.demo && (
+  const runButton = (
     <Button variant="secondary" icon="refresh" onClick={run} disabled={running}>{running ? '계산 중…' : '다음 주 예측 계산'}</Button>
   );
 
@@ -256,7 +256,7 @@ export function ForecastPage() {
   const peakUp = lastPeak ? change(peak.v, lastPeak.v) : 0;
   const maxStaff = Math.max(...fc.staff.flat());
   const moreSlots = fc.more.flatMap((r, di) => r.map((m, hi) => (m ? `${DAYS[di]} ${HOURS[hi]}시` : null))).filter(Boolean);
-  const stale = !sales.demo && fc.start < target;
+  const stale = fc.start < target;
   const dayTotals = fc.matrix.map((r, di) => ({ d: DAYS[di], next: r.reduce((a, b) => a + b, 0), last: last ? last[di].reduce((a, b) => a + b, 0) : 0 }));
   const dayMax = Math.max(...dayTotals.map((x) => Math.max(x.next, x.last))) || 1;
 
@@ -283,7 +283,7 @@ export function ForecastPage() {
           <StatCard label="예측 피크타임" value={`${peak.day} ${peak.hour}시`} sub={lastPeak ? `${peak.v}천원 · 최근 피크 ${lastPeak.day} ${lastPeak.hour}시` : `${peak.v}천원`} />
           <StatCard label="최대 필요 인원" value={maxStaff} unit="명" sub="시간당 12만원 이상 = 3명" />
         </div>
-        <Panel id="fc-bars" title="요일별 시간대 예측" actions={<DataTag demo={sales.demo} />}>
+        <Panel id="fc-bars" title="요일별 시간대 예측">
           <ForecastBars forecast={fc} initialDay={peak.di} />
         </Panel>
         <Panel id="fc-day" title="요일별 합계 비교" meta="단위: 만원">
@@ -299,9 +299,9 @@ export function ForecastPage() {
               </div>
             ))}
           </div>
-          <div className="legend"><span className="legend-swatch cb-plan" />최근 실적{sales.last && !sales.demo ? ` (${rangeLabel(sales.last.dates)})` : ''}<span className="legend-swatch cb-actual" style={{ marginLeft: 12 }} />예측</div>
+          <div className="legend"><span className="legend-swatch cb-plan" />최근 실적{sales.last ? ` (${rangeLabel(sales.last.dates)})` : ''}<span className="legend-swatch cb-actual" style={{ marginLeft: 12 }} />예측</div>
         </Panel>
-        <p className="help"><Icon name="info" size="sm" /> 필요 인원 기준: 시간당 예측 매출 8만원 미만 1명 · 12만원 미만 2명 · 그 이상 3명 (점주 설정값 예시)</p>
+        <p className="help"><Icon name="info" size="sm" /> 필요 인원 기준: 시간당 예측 매출 8만원 미만 1명 · 12만원 미만 2명 · 그 이상 3명</p>
         <Link to="/owner/sales/status" className="btn btn-text" style={{ alignSelf: 'flex-start' }}>지난 매출 현황 보기</Link>
       </div>
     </>

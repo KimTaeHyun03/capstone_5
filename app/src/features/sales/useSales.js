@@ -1,9 +1,9 @@
 /* 1-2 · 1-3 매출 데이터 — sales_summary·sales_forecast·sale 조회
    화면에는 요일(0=월…6=일) × 시간대(HOURS) 행렬, 단위 천원으로 넘긴다.
-   Supabase 가 연결되지 않은 예시 모드에서는 mocks 값을 같은 모양으로 돌려준다. */
+   로그인한 사용자의 권한으로 읽는다. */
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
-import { DAYS, HOURS, LAST_WEEK, AVG_4W, FORECAST, MENUS, THIS_DATES, NEXT_DATES } from '../../mocks/data.js';
+import { DAYS, HOURS } from '../../domain/constants.js';
 import { needStaff } from '../../domain/index.js';
 
 const WEEKS = 4;
@@ -31,20 +31,6 @@ export const rangeLabel = (dates) => `${dates[0]}(월) – ${dates[6]}(일)`;
 
 const toThousand = (won) => Math.round(won / 1000);
 const slotIndex = (slot) => HOURS.indexOf(slot);
-
-function demoData() {
-  return {
-    last: { matrix: LAST_WEEK, start: null, dates: THIS_DATES },
-    avg: { matrix: AVG_4W, weeks: 4 },
-    forecast: {
-      matrix: FORECAST, start: null, dates: NEXT_DATES,
-      staff: FORECAST.map((r) => r.map(needStaff)),
-      more: emptyMatrix(false),
-    },
-    forecasts: {}, actuals: {},
-    menuSales: MENUS.filter((m) => m.onSale).map((m) => ({ id: m.id, name: m.name, category: m.category, unit: m.unit, qty: m.sold, amount: m.sold * m.price })),
-  };
-}
 
 async function loadSummary() {
   const { data, error } = await supabase.from('sales_summary')
@@ -140,13 +126,11 @@ export async function fetchSales() {
 }
 
 export function useSales() {
-  const demo = !supabase;
-  const [state, setState] = useState(() => (demo ? { loading: false, error: null, ...demoData() } : { loading: true, error: null }));
+  const [state, setState] = useState({ loading: true, error: null });
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
-    if (demo) return;
     let alive = true;
     setState((s) => ({ ...s, loading: true, error: null }));
     (async () => {
@@ -159,9 +143,9 @@ export function useSales() {
       }
     })();
     return () => { alive = false; };
-  }, [demo, version]);
+  }, [version]);
 
-  return { ...state, demo, reload };
+  return { ...state, reload };
 }
 
 // 1-3 · 예측 생성 (점주) — DB 함수 generate_sales_forecast

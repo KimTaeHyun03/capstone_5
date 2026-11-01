@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Field, PageHead, Panel } from '../../components/ui/index.jsx';
-import { DAYS, SHIFTS } from '../../mocks/data.js';
+import { DAYS, SHIFTS } from '../../domain/constants.js';
 import { addDays, availabilityFor, covers, monday } from '../../domain/operations.js';
 import { useApp } from '../../state/AppState.jsx';
 import { DataNotice, ErrorText, useAction } from '../base/OperationsUI.jsx';
@@ -19,10 +19,10 @@ export function AvailabilityOverview() {
     const candidates=staff.filter(s=>submitted(s)&&covers(availabilityFor(ops.availability,s.id,day,ops.week),shift.start,shift.end));
     if(!candidates.length)zero++;
     const forecasts=ops.forecast.filter(f=>f.target_week===ops.week&&f.day_of_week===day&&f.time_slot>=shift.start&&f.time_slot<shift.end);
-    const need=forecasts.length===shift.end-shift.start&&forecasts.every(f=>f.required_staff!=null)?Math.max(...forecasts.map(f=>f.required_staff)):null;
+    const need=forecasts.length>0&&forecasts.every(f=>f.required_staff!=null)?Math.max(...forecasts.map(f=>f.required_staff)):null;
     return {candidates,need};
   }));
-  return <><PageHead eyebrow="근무 관리" title="가능시간 현황" desc="해당 주차에 제출한 활성 직원만 집계합니다. 여러 구간은 실제로 이어지는 경우에만 한 시프트를 지원한 것으로 계산합니다."/><div className="stack-lg"><DataNotice/><WeekPicker/><Button variant="text" onClick={ops.refresh} disabled={ops.loading||ops.mode==='demo'}>최신 제출 내역 새로고침</Button>
+  return <><PageHead eyebrow="근무 관리" title="가능시간 현황" desc="해당 주차에 제출한 활성 직원만 집계합니다. 여러 구간은 실제로 이어지는 경우에만 한 시프트를 지원한 것으로 계산합니다."/><div className="stack-lg"><DataNotice/><WeekPicker/><Button variant="text" onClick={ops.refresh} disabled={ops.loading}>최신 제출 내역 새로고침</Button>
     {!!missing.length&&<Alert tone="warning" title={`미제출 ${missing.length}명`}>{missing.map(s=>s.name).join(', ')} 님이 아직 가능시간을 제출하지 않았습니다.</Alert>}
     {!!zero&&<Alert tone="warning" title={`지원 인원 0명인 시프트 ${zero}개`}>아래 집계에서 빈 시간대를 확인하세요.</Alert>}
     <Panel title="직원별 가능시간" meta={`활성 ${staff.length}명 · 제출 ${staff.length-missing.length}명`}><div className="table-wrap"><table><thead><tr><th>직원</th>{DAYS.map((d,i)=><th key={d}>{d}<br/>{addDays(ops.week,i).slice(5)}</th>)}</tr></thead><tbody>{staff.map(s=><tr key={s.id}><th>{s.name}<small className="help">주 {s.maxHours}시간</small></th>{DAYS.map((d,i)=>{const intervals=availabilityFor(ops.availability,s.id,i,ops.week);return <td key={d}>{!submitted(s)?'미제출':intervals.length?intervals.map(([a,b])=>`${showTime(a)}–${showTime(b)}`).join(', '):'불가'}</td>;})}</tr>)}{!staff.length&&<tr><td colSpan={8}>활성 직원이 없습니다.</td></tr>}</tbody></table></div></Panel>

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Alert, Badge, Button, Field } from '../../components/ui/index.jsx';
+import { Alert, Button, Field } from '../../components/ui/index.jsx';
 import { BrandMark } from '../../layouts/Layouts.jsx';
-import { DEMO_ACCOUNTS, DEMO_PASSWORD, ROLE_HOME, useAuth } from '../../lib/auth.jsx';
+import { ROLE_HOME, useAuth } from '../../lib/auth.jsx';
 import { LoginOrSignUp, RegisterStore } from './Onboarding.jsx';
 
 export default function EntryPage() {
-  const { demo, loading, session, account, accountStatus } = useAuth();
+  const { loading, session, account, accountStatus } = useAuth();
   useEffect(() => { document.title = '로그인 · 운영 관리'; }, []);
 
   if (account) return <Navigate to={ROLE_HOME[account.role] || '/'} replace />;
@@ -20,27 +20,11 @@ export default function EntryPage() {
           <p className="entry-desc">매장의 매출 패턴으로 다음 주 필요 인원과 재료 발주량을 계산합니다. 직원은 점주가 보낸 초대 메일로 시작하고, 점주는 아래에서 가입해 매장을 등록하세요.</p>
         </div>
         <div className="login-row">
-          {loading ? <p className="auth-loading" role="status">계정을 확인하는 중…</p> : session && !demo ? (accountStatus === 'none' ? <RegisterStore /> : <NotLinked />) : <LoginOrSignUp LoginForm={LoginForm} />}
-          {demo && <DemoAccounts />}
+          {loading ? <p className="auth-loading" role="status">계정을 확인하는 중…</p> : session ? (accountStatus === 'none' ? <RegisterStore /> : <NotLinked />) : <LoginOrSignUp LoginForm={LoginForm} />}
         </div>
         <p className="entry-foot">직원이라면 점주에게 초대를 요청하세요. 초대 메일의 링크로 들어와 비밀번호를 정하면 시작할 수 있어요.</p>
       </div>
     </main>
-  );
-}
-
-// 체험 모드 안내 — Supabase Auth 가 아니라 브라우저 안에서만 확인하는 테스트 계정
-function DemoAccounts() {
-  return (
-    <aside className="login-card login-demo" aria-labelledby="demo-title">
-      <h2 className="login-title" id="demo-title"><Badge tone="orange">체험 모드</Badge> 테스트 계정</h2>
-      <p className="help">DB 마이그레이션 적용 전 화면 확인용입니다. 실제 Supabase 로그인이 아니며, 비밀번호는 모두 <strong>{DEMO_PASSWORD}</strong>입니다.</p>
-      <ul className="demo-accounts">
-        {DEMO_ACCOUNTS.map((a) => (
-          <li key={a.email}><span>{a.role} · {a.name}</span><code>{a.email}</code></li>
-        ))}
-      </ul>
-    </aside>
   );
 }
 

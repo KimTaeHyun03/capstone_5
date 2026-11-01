@@ -4,19 +4,16 @@ import { useAuth } from '../../lib/auth.jsx';
 
 const MIN_PW = 8;
 
-// 로그인 / 점주 가입 전환. LoginForm 은 EntryPage 가 넘겨 준다(체험 모드는 가입 없이 로그인만).
+// 로그인 / 점주 가입 전환. LoginForm 은 EntryPage 가 넘겨 준다.
 export function LoginOrSignUp({ LoginForm }) {
-  const { demo } = useAuth();
   const [mode, setMode] = useState('login');
   return (
     <div>
-      {!demo && (
-        <div className="tabs-inline" role="group" aria-label="시작 방법" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <Button variant={mode === 'login' ? 'primary' : 'secondary'} aria-pressed={mode === 'login'} onClick={() => setMode('login')}>로그인</Button>
-          <Button variant={mode === 'signup' ? 'primary' : 'secondary'} aria-pressed={mode === 'signup'} onClick={() => setMode('signup')}>점주로 시작하기</Button>
-        </div>
-      )}
-      {mode === 'login' || demo ? <LoginForm /> : <SignUpForm onDone={() => setMode('login')} />}
+      <div className="tabs-inline" role="group" aria-label="시작 방법" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <Button variant={mode === 'login' ? 'primary' : 'secondary'} aria-pressed={mode === 'login'} onClick={() => setMode('login')}>로그인</Button>
+        <Button variant={mode === 'signup' ? 'primary' : 'secondary'} aria-pressed={mode === 'signup'} onClick={() => setMode('signup')}>점주로 시작하기</Button>
+      </div>
+      {mode === 'login' ? <LoginForm /> : <SignUpForm onDone={() => setMode('login')} />}
     </div>
   );
 }

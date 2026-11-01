@@ -3,7 +3,6 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { Icon, IconButton } from '../components/ui/index.jsx';
 import { useApp } from '../state/AppState.jsx';
 import { useAuth } from '../lib/auth.jsx';
-import { STORE } from '../mocks/data.js';
 import { STAFF_TABS } from './nav.js';
 
 // 로그아웃 — 세션을 끊고 로그인 화면으로 (예시 모드에서는 이동만)
@@ -58,14 +57,14 @@ function SideNav({ base, nav, onNavigate }) {
 }
 
 /* 점주·매니저 공통 셸 — 데스크톱 사이드바, 1023px 이하 서랍 */
-export function AdminLayout({ base, nav, user: demoUser }) {
-  const { account, demo } = useAuth();
-  const user = account || demoUser;
-  const storeName = account?.storeName || STORE.name;
+export function AdminLayout({ base, nav }) {
+  const { account } = useAuth();
+  const user = account;
+  const storeName = account?.storeName || '';
   const logout = useLogout();
   const [drawer, setDrawer] = useState(false);
   const { loadAlerts } = useApp();
-  const accountId = account && !demo ? account.id : null;
+  const accountId = account ? account.id : null;
   useEffect(() => { if (accountId) loadAlerts(accountId); }, [accountId, loadAlerts]); // 4-5 로그인한 사용자의 알림
   const pathname = useScrollTop();
   const current = nav.flatMap((g) => g.items.map((it) => ({ ...it, group: g })))

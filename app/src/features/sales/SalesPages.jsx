@@ -3,14 +3,11 @@ import { Link } from 'react-router-dom';
 import { Alert, Badge, Button, EmptyState, PageHead, Panel, SampleTag, Segment, StatCard, Icon, useToast } from '../../components/ui/index.jsx';
 import { Heatmap, ForecastBars } from '../../components/charts/index.jsx';
 import { DAYS, HOURS, NEXT_RANGE, TODAY, OWNER } from '../../mocks/data.js';
-import { man, pct, recommendQty, won } from '../../domain/index.js';
+import { man, menuUnit, pct, recommendQty, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useAuth } from '../../lib/auth.jsx';
 import { AiInsight } from '../ai/AiInsight.jsx';
-// 메뉴 분류로 판매 단위를 정한다: 음료류는 잔, 그 밖(베이커리·디저트·샌드위치 등)은 개
-const DRINK = /커피|음료|티|차|에이드|라떼|스무디|주스|쉐이크|프라페|맥주|술|와인/;
-const salesUnit = (category) => (DRINK.test(category || '') ? '잔' : '개');
-import { generateForecast, nextWeekStart, rangeLabel, useSales } from './useSales.js';
+import { addDays, generateForecast, nextWeekStart, rangeLabel, thisWeekStart, useSales, weekDates } from './useSales.js';
 
 const sum = (rows) => rows.flat().reduce((a, b) => a + b, 0);
 const peakOf = (rows) => {
@@ -79,6 +76,19 @@ export function OwnerDashboard() {
   const peak = fc && peakOf(fc.matrix);
   const diff = fc && sales.last ? change(sum(fc.matrix), sum(sales.last.matrix)) : null;
 
+  // 시간대별 예측 패널: 지난주·이번주·다음주 중 고른다 (예측이나 실적이 있는 주만)
+  const [weekKey, setWeekKey] = useState('next');
+  const weekStarts = sales.demo ? { next: fc?.start ?? null } : { last: addDays(thisWeekStart(), -7), this: thisWeekStart(), next: nextWeekStart() };
+  const hasWeek = (k) => (k === 'next' && fc && sales.demo) || !!(sales.forecasts?.[weekStarts[k]] || sales.actuals?.[weekStarts[k]]);
+  const weekOptions = [['last', '지난주'], ['this', '이번주'], ['next', '다음주']].filter(([k]) => hasWeek(k)).map(([value, label]) => ({ value, label }));
+  const activeKey = weekOptions.some((o) => o.value === weekKey) ? weekKey : (weekOptions.find((o) => o.value === 'next') || weekOptions[0])?.value;
+  const shownStart = activeKey && weekStarts[activeKey];
+  const shownFc = sales.demo ? fc : sales.forecasts?.[shownStart];
+  const shownActual = sales.demo ? null : sales.actuals?.[shownStart] ?? null;
+  const shownHasForecast = !!shownFc;
+  const shown = shownFc || (shownActual ? { matrix: shownActual.map((r) => r.map(() => 0)), staff: shownActual.map((r) => r.map(() => 1)), more: null, start: shownStart, dates: weekDates(shownStart) } : null);
+  const shownPeak = shown && peakOf(shownFc ? shown.matrix : shownActual);
+
   return (
     <>
       <PageHead eyebrow={`오늘 ${TODAY.label}`} title={`안녕하세요, ${(account || OWNER).name} 점주님`}
@@ -105,9 +115,15 @@ export function OwnerDashboard() {
         </div>
 
         <div className="grid-2">
-          <Panel id="db-fc" title="시간대별 예측" meta="예측 매출 · 필요 인원" actions={<DataTag demo={sales.demo} />}>
-            {sales.loading ? <Loading /> : fc ? <ForecastBars forecast={fc} initialDay={peak.di} />
-              : <EmptyState icon="chart" title="아직 매출 예측이 없습니다" action={<Button variant="secondary" to="/owner/sales/forecast">예측 화면으로</Button>} />}
+          <Panel id="db-fc" title="시간대별 예측" meta={shown ? `${rangeLabel(shown.dates)} · 예측 매출 · 필요 인원` : '예측 매출 · 필요 인원'} actions={<DataTag demo={sales.demo} />}>
+            {sales.loading ? <Loading /> : (
+              <>
+                {weekOptions.length > 1 && <div style={{ marginBottom: 12 }}><Segment label="주 선택" value={activeKey} onChange={setWeekKey} options={weekOptions} /></div>}
+                {shown ? <ForecastBars key={activeKey} forecast={shown} initialDay={shownPeak.di} actual={shownActual} />
+                  : <EmptyState icon="chart" title="아직 매출 예측이 없습니다" action={<Button variant="secondary" to="/owner/sales/forecast">예측 화면으로</Button>} />}
+                {shown && !shownHasForecast && <p className="help">이 주에는 저장된 예측이 없어 실제 매출만 보여 줍니다.</p>}
+              </>
+            )}
           </Panel>
           <Panel id="db-todo" title="최근 알림" actions={<Button variant="text" to="/owner/stock/alerts">전체 보기</Button>}>
             <div className="list">
@@ -178,7 +194,7 @@ export function SalesStatusPage() {
                     <tr key={m.id}>
                       <th scope="row">{m.name}</th>
                       <td>{m.category}</td>
-                      <td className="num">{m.qty.toLocaleString()}{salesUnit(m.category)}</td>
+                      <td className="num">{m.qty.toLocaleString()}{menuUnit(m)}</td>
                       <td className="num">{won(m.amount)}</td>
                       <td className="num">{((m.amount / menuTotal) * 100).toFixed(1)}%</td>
                     </tr>

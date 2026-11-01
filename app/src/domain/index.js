@@ -148,3 +148,8 @@ export function coefficient(errors, iid) {
 export const won = (n) => `${Math.round(n).toLocaleString('ko-KR')}원`;
 export const man = (thousand) => (thousand / 10).toLocaleString('ko-KR', { maximumFractionDigits: 1 });
 export const pct = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+
+// 메뉴 판매 단위: 메뉴에 저장된 단위를 쓰고, 없으면(예시 데이터 등) 분류로 추정한다
+export const SALE_UNITS = ['잔', '개', '조각', '판', '세트', '접시', '그릇', '인분'];
+const DRINK_CATEGORY = /커피|음료|티|차|에이드|라떼|스무디|주스|쉐이크|프라페|맥주|술|와인/;
+export const menuUnit = (menu) => menu?.unit || (DRINK_CATEGORY.test(menu?.category || '') ? '잔' : '개');

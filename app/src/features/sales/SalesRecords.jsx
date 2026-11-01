@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Button, Field, PageHead, Pagination, Panel, StatCard, usePaged } from '../../components/ui/index.jsx';
 import { dateKST, parseSalesCSV, validateSales } from '../../domain/operations.js';
-import { won } from '../../domain/index.js';
+import { menuUnit, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { DataNotice, ErrorText, useAction } from '../base/OperationsUI.jsx';
 
@@ -10,6 +10,7 @@ export function SalesRecords() {
   const {ops}=useApp(),action=useAction(),fileAction=useAction();
   const [form,setForm]=useState(newForm),[preview,setPreview]=useState([]);
   const menuName=id=>ops.menus.find(m=>String(m.id)===String(id))?.name||id;
+  const unitOf=id=>menuUnit(ops.menus.find(m=>String(m.id)===String(id)));
   const update=(key,value)=>setForm(f=>{
     const next={...f,[key]:value};
     if(key==='menu_id'||key==='quantity') {const m=ops.menus.find(m=>String(m.id)===String(next.menu_id)); if(m)next.amount=String(m.price*Number(next.quantity));}
@@ -32,16 +33,16 @@ export function SalesRecords() {
       <Field id="sale-payment" label="결제번호"><input id="sale-payment" className="input" value={form.payment_no} maxLength={30} onChange={e=>update('payment_no',e.target.value)}/></Field>
       <Field id="sale-menu" label="메뉴"><select id="sale-menu" className="select" value={form.menu_id} onChange={e=>update('menu_id',e.target.value)}><option value="">선택하세요</option>{ops.menus.filter(m=>m.onSale).map(m=><option key={m.id} value={m.id}>{m.name} ({m.id})</option>)}</select></Field>
       <Field id="sale-at" label="판매 일시 (한국 시간)"><input id="sale-at" className="input" type="datetime-local" value={form.sold_at} onChange={e=>update('sold_at',e.target.value)}/></Field>
-      <Field id="sale-qty" label="수량"><input id="sale-qty" className="input" type="number" min="1" step="1" value={form.quantity} onChange={e=>update('quantity',e.target.value)}/></Field>
+      <Field id="sale-qty" label={`수량${form.menu_id?` (${unitOf(form.menu_id)})`:''}`}><input id="sale-qty" className="input" type="number" min="1" step="1" value={form.quantity} onChange={e=>update('quantity',e.target.value)}/></Field>
       <Field id="sale-amount" label="결제 금액(원)"><input id="sale-amount" className="input" type="number" min="0" step="1" value={form.amount} onChange={e=>update('amount',e.target.value)}/></Field>
     </div><Button disabled={action.busy||ops.loading} onClick={()=>action.run(()=>ops.importSales([form]),'판매 기록과 매출 집계를 저장했습니다.',()=>setForm(newForm()))}>{action.busy?'저장 중…':'판매 저장'}</Button></Panel>
     <Panel title="CSV 업로드" actions={<Button variant="secondary" onClick={download}>양식 다운로드</Button>}>
       <p className="help">UTF-8 CSV · 최대 1,000행 / 2MB · 헤더: payment_no,menu_name(또는 menu_id),sold_at,quantity,amount. 메뉴는 등록한 이름으로 써도 됩니다. 같은 결제번호·메뉴는 한 행으로 합치세요. 기존 결제와 중복되면 전체 저장이 취소됩니다.</p>
       <Field id="sale-file" label="CSV 파일 선택"><input id="sale-file" type="file" accept=".csv,text/csv" disabled={action.busy||fileAction.busy} onChange={readFile}/></Field><ErrorText error={fileAction.error}/>
-      {!!preview.length&&<><Alert title={`${preview.length}행 검증 완료 · ${won(preview.reduce((n,r)=>n+r.amount,0))}`}>미리보기는 최대 10행입니다. 아래 저장 버튼을 눌러야 반영됩니다.</Alert><div className="table-wrap"><table><thead><tr><th>결제번호</th><th>메뉴</th><th>수량</th><th>금액</th></tr></thead><tbody>{preview.slice(0,10).map((r,i)=><tr key={i}><td>{r.payment_no}</td><td>{menuName(r.menu_id)}</td><td>{r.quantity}</td><td>{won(r.amount)}</td></tr>)}</tbody></table></div><Button disabled={action.busy||ops.loading} onClick={()=>action.run(()=>ops.importSales(preview),`${preview.length}행을 저장했습니다.`,()=>setPreview([]))}>검증한 {preview.length}행 저장</Button></>}
+      {!!preview.length&&<><Alert title={`${preview.length}행 검증 완료 · ${won(preview.reduce((n,r)=>n+r.amount,0))}`}>미리보기는 최대 10행입니다. 아래 저장 버튼을 눌러야 반영됩니다.</Alert><div className="table-wrap"><table><thead><tr><th>결제번호</th><th>메뉴</th><th>수량</th><th>금액</th></tr></thead><tbody>{preview.slice(0,10).map((r,i)=><tr key={i}><td>{r.payment_no}</td><td>{menuName(r.menu_id)}</td><td>{r.quantity}{unitOf(r.menu_id)}</td><td>{won(r.amount)}</td></tr>)}</tbody></table></div><Button disabled={action.busy||ops.loading} onClick={()=>action.run(()=>ops.importSales(preview),`${preview.length}행을 저장했습니다.`,()=>setPreview([]))}>검증한 {preview.length}행 저장</Button></>}
     </Panel>
     <SalesSummary/>
-    <Panel title="판매 내역" meta={`${records.length}행`}><div className="table-wrap"><table><thead><tr><th>판매 일시</th><th>결제번호</th><th>메뉴</th><th>수량</th><th>금액</th></tr></thead><tbody>{paged.rows.map(r=><tr key={r.sale_id}><td>{new Date(r.sold_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})}</td><td>{r.payment_no}</td><td>{menuName(r.menu_id)}</td><td>{r.quantity}</td><td>{won(r.amount)}</td></tr>)}{!records.length&&<tr><td colSpan={5}>선택한 기간의 판매 기록이 없습니다.</td></tr>}</tbody></table></div><Pagination page={paged.page} pages={paged.pages} onPage={paged.setPage} total={records.length}/></Panel>
+    <Panel title="판매 내역" meta={`${records.length}행`}><div className="table-wrap"><table><thead><tr><th>판매 일시</th><th>결제번호</th><th>메뉴</th><th>수량</th><th>금액</th></tr></thead><tbody>{paged.rows.map(r=><tr key={r.sale_id}><td>{new Date(r.sold_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})}</td><td>{r.payment_no}</td><td>{menuName(r.menu_id)}</td><td>{r.quantity}{unitOf(r.menu_id)}</td><td>{won(r.amount)}</td></tr>)}{!records.length&&<tr><td colSpan={5}>선택한 기간의 판매 기록이 없습니다.</td></tr>}</tbody></table></div><Pagination page={paged.page} pages={paged.pages} onPage={paged.setPage} total={records.length}/></Panel>
     </div></>;
 }
 export function SalesSummary({standalone=false}) {

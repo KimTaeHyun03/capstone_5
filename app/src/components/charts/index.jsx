@@ -45,11 +45,12 @@ export function Heatmap({ data, caption }) {
 /* 1-3 · 다음 주 시간대별 예측 + 필요 인원
    forecast = { matrix(천원), staff(명), dates } — 비우면 예시 데이터 */
 const DEMO_FORECAST = { matrix: FORECAST, staff: FORECAST.map((r) => r.map(needStaff)), dates: NEXT_DATES };
-export function ForecastBars({ forecast = DEMO_FORECAST, initialDay = 5 }) {
+export function ForecastBars({ forecast = DEMO_FORECAST, initialDay = 5, actual = null }) {
   const [day, setDay] = useState(initialDay);
   const row = forecast.matrix[day];
   const staff = forecast.staff[day];
-  const max = Math.max(...forecast.matrix.flat()) || 1;
+  const actualRow = actual ? actual[day] : null;
+  const max = Math.max(...forecast.matrix.flat(), ...(actual ? actual.flat() : [])) || 1;
   const peak = Math.max(...row);
   const total = row.reduce((a, b) => a + b, 0);
   return (
@@ -70,7 +71,12 @@ export function ForecastBars({ forecast = DEMO_FORECAST, initialDay = 5 }) {
       <div className="staff-row" aria-hidden="true">
         {staff.map((n, i) => <span key={i} className="staff-dot">{n}</span>)}
       </div>
-      <p className="help" style={{ marginTop: 8 }}>막대 = 예측 매출(천원), 아래 숫자 = 필요 인원(명) · 파란 막대 = 그날 피크</p>
+      {actualRow && (
+        <div className="staff-row" aria-hidden="true" title="실제 매출(천원)">
+          {actualRow.map((v, i) => <span key={i} className="staff-dot" style={{ background: 'transparent', color: 'var(--ink)', fontWeight: 600 }}>{v}</span>)}
+        </div>
+      )}
+      <p className="help" style={{ marginTop: 8 }}>막대 = 예측 매출(천원), {actualRow ? '위 숫자 = 필요 인원(명), 굵은 숫자 = 실제 매출(천원)' : '아래 숫자 = 필요 인원(명)'} · 파란 막대 = 그날 피크</p>
       <table className="sr-only">
         <caption>{DAYS[day]}요일 시간대별 예측 매출과 필요 인원</caption>
         <thead><tr><th>시간</th><th>예측 매출(천원)</th><th>필요 인원</th></tr></thead>

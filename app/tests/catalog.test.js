@@ -70,3 +70,16 @@ test('downloadable templates parse with their own headers', () => {
   const rows = parseCatalogCSV(templateCSV('recipe'), 'recipe');
   assert.equal(rows.length, 2);
 });
+
+test('menu CSV: sale_unit is optional and passed through', () => {
+  const rows = parseCatalogCSV(csv('menu_name,category,price,sale_unit', '아메리카노,커피,4500,잔', '쿠키,디저트,3000,'), 'menu');
+  assert.equal(rows[0].unit, '잔');
+  assert.equal('unit' in rows[1], false);
+});
+
+test('ingredient CSV: only measurable units, case-normalized', () => {
+  const head = 'ingredient_name,unit,unit_price,min_stock,order_quantity';
+  const rows = parseCatalogCSV(csv(head, '시럽,l,19000,1,0.75', '소스,KG,19000,1,0.5', '우유,ml,3,1,1'), 'ingredient');
+  assert.deepEqual(rows.map((r) => r.unit), ['L', 'kg', 'mL']);
+  assert.throws(() => parseCatalogCSV(csv(head, '시럽,병,11000,2,1'), 'ingredient'), /1행|2행: 사용 단위는 kg, g, L, mL, 개/);
+});

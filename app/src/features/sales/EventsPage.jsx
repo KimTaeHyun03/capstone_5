@@ -22,6 +22,7 @@ export function EventsPage() {
   const [busy, setBusy] = useState('');
   const [form, setForm] = useState(null); // null = 닫힘
   const [formError, setFormError] = useState('');
+  const [radius, setRadius] = useState(''); // 입력 중인 반경(m). 비어 있으면 저장된 값을 쓴다
 
   const load = useCallback(async () => {
     try {
@@ -48,6 +49,12 @@ export function EventsPage() {
   }
 
   const hasLoc = loc?.latitude != null;
+  const radiusValue = radius === '' ? (loc?.event_radius_m ?? 1000) : Number(radius);
+  const radiusValid = Number.isInteger(radiusValue) && radiusValue >= 1;
+  const saveRadius = () => run('radius', async () => {
+    await saveLocation(Number(loc.latitude), Number(loc.longitude), radiusValue);
+    setRadius('');
+  }, '행사 반경을 저장했습니다. 행사를 다시 불러오면 새 반경으로 찾습니다.');
   const submit = async () => {
     if (!form.title.trim() || !form.start_date || !form.end_date) { setFormError('행사 이름과 기간을 입력하세요.'); return; }
     if (form.end_date < form.start_date) { setFormError('종료일은 시작일보다 빠를 수 없습니다.'); return; }
@@ -74,6 +81,15 @@ export function EventsPage() {
         {hasLoc
           ? <p>{loc.address || '주소 없음'} · 위도 {Number(loc.latitude).toFixed(4)}, 경도 {Number(loc.longitude).toFixed(4)}</p>
           : <Alert tone="warning" title="매장 위치가 없어 자동 불러오기를 쓸 수 없습니다">매장 주소를 좌표로 바꿔 저장하세요. 행사를 직접 등록하는 것은 위치 없이도 됩니다.</Alert>}
+        {hasLoc && (
+          <div className="row-actions">
+            <Field id="ev-radius" label="행사 반경(m)" help="매장에서 이 거리 안의 행사만 불러옵니다. 기본 1000m.">
+              <input id="ev-radius" type="number" min="1" step="100" value={radius === '' ? (loc.event_radius_m ?? 1000) : radius}
+                onChange={(e) => setRadius(e.target.value)} />
+            </Field>
+            <Button variant="secondary" disabled={busy === 'radius' || !radiusValid || radiusValue === loc.event_radius_m} onClick={saveRadius}>반경 저장</Button>
+          </div>
+        )}
         <div className="row-actions">
           <Button variant="secondary" disabled={busy === 'geo'}
             onClick={() => run('geo', geocodeStore, '매장 위치를 저장했습니다.')}>{hasLoc ? '주소로 위치 다시 찾기' : '주소로 위치 찾기'}</Button>

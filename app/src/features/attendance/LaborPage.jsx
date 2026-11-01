@@ -30,7 +30,7 @@ export default function LaborPage() {
 
   return (
     <>
-      <PageHead eyebrow="근무 관리 · 3-1 ~ 3-3" title="출퇴근·인건비" desc="확정 근무표의 예정 인건비와 출퇴근 기록으로 계산한 실제 인건비를 비교합니다." />
+      <PageHead eyebrow="근무 관리" title="출퇴근·인건비" desc="확정 근무표의 예정 인건비와 출퇴근 기록으로 계산한 실제 인건비를 비교합니다." />
       <div className="stack-lg">
         <div className="grid-3">
           <StatCard label={`${data.month}월 예정 인건비`} value={won(plan)} sub="근무 배정 × 시급" />

@@ -21,7 +21,7 @@ export function InventoryPage() {
   const negative = inventory.filter((i) => i.stock < 0);
   return (
     <>
-      <PageHead eyebrow="재고 관리 · 4-2" title="재고 현황" desc="판매 시 레시피 소요량만큼 자동 차감된 현재 재고입니다."
+      <PageHead eyebrow="재고 관리" title="재고 현황" desc="판매 시 레시피 소요량만큼 자동 차감된 현재 재고입니다."
         actions={base === '/manager' ? <Button icon="clipboard" to={p('stocktake')}>실사·폐기 기록</Button> : <Button icon="truck" to={p('order/recommend')}>권장 발주 보기</Button>} />
       <div className="stack-lg">
         {negative.length > 0 && (
@@ -83,7 +83,7 @@ export function AlertsPage() {
   };
   return (
     <>
-      <PageHead eyebrow="재고 관리 · 4-4 · 4-5" title="부족 알림" desc="최소 보유량 미달 자동 알림과 직원이 직접 올린 부족 신고입니다."
+      <PageHead eyebrow="재고 관리" title="부족 알림" desc="최소 보유량 미달 자동 알림과 직원이 직접 올린 부족 신고입니다."
         actions={base === '/owner' ? <Button icon="truck" to={p('order/recommend')}>발주하러 가기</Button> : <Button icon="inbox" to={p('receive')}>입고 처리</Button>} />
       <div className="stack-lg">
         <Panel id="al-low" title="최소 보유량 미달" meta={`${lowStock.length}건 · 자동 감지`}>
@@ -175,7 +175,7 @@ export function StocktakePage() {
   };
   return (
     <>
-      <PageHead eyebrow="재고 관리 · 4-3" title="실사·폐기 기록" desc="실제로 센 수량이나 버린 수량을 입력하면 재고 변동 기록으로 남고 재고에 바로 반영됩니다." />
+      <PageHead eyebrow="재고 관리" title="실사·폐기 기록" desc="실제로 센 수량이나 버린 수량을 입력하면 재고 변동 기록으로 남고 재고에 바로 반영됩니다." />
       <div className="stack-lg">
         <Segment label="기록 유형" value={mode} onChange={(m) => { setMode(m); setVals({}); setErrors({}); }} options={[{ value: 'count', label: '재고 실사' }, { value: 'waste', label: '폐기' }]} />
         {mode === 'waste' && (

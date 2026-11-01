@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Badge, Button, EmptyState, Modal, PageHead, Panel, SampleTag, Segment, useToast } from '../../components/ui/index.jsx';
 import { DAYS, NEXT_DATES, NEXT_RANGE, OWNER, SHIFTS, STAFF, THIS_DATES, staffById } from '../../mocks/data.js';
-import { NEED, canWork, cellKey, fmtAvail, fmtRange, hoursOf, shiftHours, shortCells, supportCount, violations } from '../../domain/index.js';
+import { NEED, canAssign, cellKey, fmtAvail, fmtRange, hoursOf, shiftHours, shortCells, supportCount, violations } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useAuth } from '../../lib/auth.jsx';
 import { useBase, useRolePath } from '../../layouts/Layouts.jsx';
@@ -10,7 +10,7 @@ import { useBase, useRolePath } from '../../layouts/Layouts.jsx';
 export function AvailabilityPage() {
   return (
     <>
-      <PageHead eyebrow="근무 관리 · 2-2" title="가능시간 현황" desc={`${NEXT_RANGE} 직원이 제출한 근무 가능시간과 시프트별 지원 인원입니다.`} />
+      <PageHead eyebrow="근무 관리" title="가능시간 현황" desc={`${NEXT_RANGE} 직원이 제출한 근무 가능시간과 시프트별 지원 인원입니다.`} />
       <div className="stack-lg">
         <Alert tone="warning" title="한지우 님이 아직 가능시간을 제출하지 않았습니다">초대 수락 전 계정입니다. 지난주 가능시간으로 표시합니다.</Alert>
         <Panel id="av" title="직원별 가능시간" meta="시:시 형식" actions={<SampleTag />}>
@@ -108,7 +108,7 @@ function EditCellModal({ di, shift, assign, onClose, onSave }) {
       footer={<><Button variant="secondary" onClick={onClose}>취소</Button><Button onClick={() => onSave(k, sel)}>저장 ({sel.length}명)</Button></>}>
       <div className="list" role="group" aria-label="배정할 직원">
         {staff.map((st) => {
-          const ok = canWork(st, di, shift);
+          const ok = canAssign(st, di, shift);
           const after = hrs[st.id] + (sel.includes(st.id) && !(assign[k] || []).includes(st.id) ? shiftHours(shift) : 0) - (!sel.includes(st.id) && (assign[k] || []).includes(st.id) ? shiftHours(shift) : 0);
           const over = after > st.maxHours;
           return (
@@ -223,7 +223,7 @@ export function SchedulePage() {
 
   return (
     <>
-      <PageHead eyebrow="근무 관리 · 2-3 · 2-5" title="스케줄 편성" desc={`다음 주 ${NEXT_RANGE} · 예측 매출로 시프트별 필요 인원을 계산하고, 가능시간과 주 최대 근무시간 안에서 배정합니다.`} actions={actions} />
+      <PageHead eyebrow="근무 관리" title="스케줄 편성" desc={`다음 주 ${NEXT_RANGE} · 예측 매출로 시프트별 필요 인원을 계산하고, 가능시간과 주 최대 근무시간 안에서 배정합니다.`} actions={actions} />
       <Steps state={state} />
       <div className="stack-lg">
         {genErr && <Alert tone="danger" title="초안을 만들지 못했습니다" live>{genErr}</Alert>}
@@ -291,7 +291,7 @@ export function ScheduleReviewPage() {
 
   return (
     <>
-      <PageHead eyebrow="근무 관리 · 2-4" title="초안 검토·수정" desc={`점주가 만든 ${NEXT_RANGE} 초안입니다. 칸을 눌러 배정을 바꾸면 가능시간·주 최대 근무시간을 다시 검사합니다.`}
+      <PageHead eyebrow="근무 관리" title="초안 검토·수정" desc={`점주가 만든 ${NEXT_RANGE} 초안입니다. 칸을 눌러 배정을 바꾸면 가능시간·주 최대 근무시간을 다시 검사합니다.`}
         actions={state === 'review' && <Button icon="check" onClick={done} disabled={viol.length > 0}>검토 완료</Button>} />
       <div className="stack-lg">
         {state === 'review' ? (

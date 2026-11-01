@@ -101,7 +101,7 @@ export function RecommendPage() {
 
   return (
     <>
-      <PageHead eyebrow="발주 관리 · 5-1 · 5-2" title="권장 발주" desc="다음 주 예상 소진량과 보정 계수로 계산한 권장량입니다. 수량을 고친 뒤 발주를 등록하세요." />
+      <PageHead eyebrow="발주 관리" title="권장 발주" desc="다음 주 예상 소진량과 보정 계수로 계산한 권장량입니다. 수량을 고친 뒤 발주를 등록하세요." />
       <div className="stack-lg">
         <Alert tone="info" title="권장 발주량 = 예상 소진량 × 보정 계수 − 현재 재고">발주 단위로 올림한 값입니다. 보정 계수는 최근 3주 예측 오차로 계산했습니다.{recsLoaded && Object.keys(recs).length > 0 && ` (계산 기준: ${new Date(Object.values(recs)[0].calculatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })})`}</Alert>
         {inventorySource === 'db' && recsLoaded && (lastWeekClosed
@@ -202,7 +202,7 @@ export function OrdersPage() {
   const waiting = orders.filter((o) => o.status === '대기').length;
   return (
     <>
-      <PageHead eyebrow="발주 관리 · 5-2 · 5-3" title="발주·입고 내역" desc="등록한 발주와 매니저의 입고 처리 상태입니다." actions={<Button icon="truck" to={p('order/recommend')}>새 발주</Button>} />
+      <PageHead eyebrow="발주 관리" title="발주·입고 내역" desc="등록한 발주와 매니저의 입고 처리 상태입니다." actions={<Button icon="truck" to={p('order/recommend')}>새 발주</Button>} />
       <div className="stack-lg">
         <div className="grid-3">
           <StatCard label="입고 대기" value={waiting} unit="건" sub="매니저가 입고 처리" />
@@ -277,7 +277,7 @@ export function ReceivePage() {
   };
   return (
     <>
-      <PageHead eyebrow="입고 · 5-3" title="입고 처리" desc="점주가 등록한 발주의 물품이 도착하면 받은 수량을 확인하고 입고 완료하세요." />
+      <PageHead eyebrow="입고" title="입고 처리" desc="점주가 등록한 발주의 물품이 도착하면 받은 수량을 확인하고 입고 완료하세요." />
       <div className="stack-lg">
         <Panel id="rv-wait" title="입고 대기" meta={`${waiting.length}건`}>
           {waiting.length ? <OrderTable orders={waiting} inventory={inventory} onReceive={setTarget} /> : <EmptyState icon="check" title="입고 대기 중인 발주가 없습니다">점주가 발주를 등록하면 여기에 표시됩니다.</EmptyState>}
@@ -319,7 +319,7 @@ export function CorrectionPage() {
   if (inventorySource === 'db' && !correction) {
     return (
       <>
-        <PageHead eyebrow="발주 관리 · 6-1 · 6-2" title="예측 오차 보정" desc="실제 소진량 = 기초 재고 + 입고 − 기말 재고. 예측과의 차이로 다음 발주의 보정 계수를 계산합니다."
+        <PageHead eyebrow="발주 관리" title="예측 오차 보정" desc="실제 소진량 = 기초 재고 + 입고 − 기말 재고. 예측과의 차이로 다음 발주의 보정 계수를 계산합니다."
           actions={<><Button variant="secondary" icon="plus" to="/owner/sales/records">판매 기록 입력</Button><Button variant="secondary" onClick={runClose} disabled={closing}>{closing ? '마감 중…' : '지난주 마감 실행'}</Button></>} />
         <div className="stack-lg">
           <Panel id="ce-empty"><EmptyState icon="chart" title="아직 마감된 주가 없습니다">지난주 판매와 입고 기록을 올린 뒤 오른쪽 위 ‘지난주 마감 실행’을 누르면 예측 오차와 폐기, 새 보정 계수가 여기에 표시됩니다.</EmptyState></Panel>
@@ -330,7 +330,7 @@ export function CorrectionPage() {
   }
   return (
     <>
-      <PageHead eyebrow="발주 관리 · 6-1 · 6-2" title="예측 오차 보정" desc="실제 소진량 = 기초 재고 + 입고 − 기말 재고. 예측과의 차이로 다음 발주의 보정 계수를 계산합니다."
+      <PageHead eyebrow="발주 관리" title="예측 오차 보정" desc="실제 소진량 = 기초 재고 + 입고 − 기말 재고. 예측과의 차이로 다음 발주의 보정 계수를 계산합니다."
         actions={inventorySource === 'db' ? <><Button variant="secondary" icon="plus" to="/owner/sales/records">판매 기록 입력</Button><Button variant="secondary" onClick={runClose} disabled={closing}>{closing ? '마감 중…' : '지난주 마감 실행'}</Button></> : null} />
       <div className="stack-lg">
         <div className="grid-3">

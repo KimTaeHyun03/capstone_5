@@ -34,7 +34,7 @@ export function StorePage() {
   );
   return (
     <>
-      <PageHead eyebrow="기초 정보 · 7-1" title="매장·직원" desc="영업시간은 근무 시프트 기준이 되고, 시급은 급여·인건비 계산에 쓰입니다." actions={<Button icon="plus" onClick={() => setInvite(true)}>직원 초대</Button>} />
+      <PageHead eyebrow="기초 정보" title="매장·직원" desc="영업시간은 근무 시프트 기준이 되고, 시급은 급여·인건비 계산에 쓰입니다." actions={<Button icon="plus" onClick={() => setInvite(true)}>직원 초대</Button>} />
       <div className="stack-lg">
         <Panel id="store" title="매장 정보">
           <dl className="kv" style={{ maxWidth: 520 }}>
@@ -94,7 +94,7 @@ export function MenuPage() {
   const menu = menus.find((m) => m.id === open);
   return (
     <>
-      <PageHead eyebrow="기초 정보 · 7-2 · 7-4" title="메뉴·레시피" desc="메뉴 1개에 들어가는 재료 양(레시피)은 판매 시 재고 자동 차감과 권장 발주량 계산에 쓰입니다." />
+      <PageHead eyebrow="기초 정보" title="메뉴·레시피" desc="메뉴 1개에 들어가는 재료 양(레시피)은 판매 시 재고 자동 차감과 권장 발주량 계산에 쓰입니다." />
       <div className="stack-lg">
         {noRecipe.length > 0 && <Alert tone="warning" title={`레시피가 없는 메뉴 ${noRecipe.length}개`}>{noRecipe.map((m) => m.name).join(', ')} — 판매해도 재고가 자동 차감되지 않습니다.</Alert>}
         <Panel id="menu" title="메뉴 목록" actions={<SampleTag />}>
@@ -149,7 +149,7 @@ export function IngredientPage() {
   const { inventory } = useApp();
   return (
     <>
-      <PageHead eyebrow="기초 정보 · 7-3" title="재료" desc="최소 보유량은 부족 알림 기준이고, 발주 단위는 권장 발주량을 올림하는 단위입니다." />
+      <PageHead eyebrow="기초 정보" title="재료" desc="최소 보유량은 부족 알림 기준이고, 발주 단위는 권장 발주량을 올림하는 단위입니다." />
       <Panel id="ing" title="재료 목록" meta={`${inventory.length}개`} actions={<SampleTag />}>
         <div className="table-wrap">
           <table>

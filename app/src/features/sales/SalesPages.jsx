@@ -7,6 +7,9 @@ import { man, pct, recommendQty, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useAuth } from '../../lib/auth.jsx';
 import { AiInsight } from '../ai/AiInsight.jsx';
+// 메뉴 분류로 판매 단위를 정한다: 음료류는 잔, 그 밖(베이커리·디저트·샌드위치 등)은 개
+const DRINK = /커피|음료|티|차|에이드|라떼|스무디|주스|쉐이크|프라페|맥주|술|와인/;
+const salesUnit = (category) => (DRINK.test(category || '') ? '잔' : '개');
 import { generateForecast, nextWeekStart, rangeLabel, useSales } from './useSales.js';
 
 const sum = (rows) => rows.flat().reduce((a, b) => a + b, 0);
@@ -175,7 +178,7 @@ export function SalesStatusPage() {
                     <tr key={m.id}>
                       <th scope="row">{m.name}</th>
                       <td>{m.category}</td>
-                      <td className="num">{m.qty.toLocaleString()}{m.category === '베이커리' ? '개' : '잔'}</td>
+                      <td className="num">{m.qty.toLocaleString()}{salesUnit(m.category)}</td>
                       <td className="num">{won(m.amount)}</td>
                       <td className="num">{((m.amount / menuTotal) * 100).toFixed(1)}%</td>
                     </tr>

@@ -7,7 +7,7 @@ import { LoginOrSignUp, RegisterStore } from './Onboarding.jsx';
 
 export default function EntryPage() {
   const { demo, loading, session, account, accountStatus } = useAuth();
-  useEffect(() => { document.title = '로그인 · 카페 온기 운영 관리'; }, []);
+  useEffect(() => { document.title = '로그인 · 운영 관리'; }, []);
 
   if (account) return <Navigate to={ROLE_HOME[account.role] || '/'} replace />;
 

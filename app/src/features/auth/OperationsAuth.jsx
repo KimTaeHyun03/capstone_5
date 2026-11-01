@@ -7,7 +7,7 @@ const paths={'점주':'/owner/sales/records','매니저':'/manager/availability'
 export function LoginPage() {
   const {ops}=useApp(),action=useAction(),navigate=useNavigate();
   const [email,setEmail]=useState(''),[password,setPassword]=useState('');
-  return <main className="entry"><div className="entry-inner stack-lg"><PageHead title="카페 온기 운영 관리" desc="매장 계정으로 로그인하거나 로컬 체험을 시작하세요."/>
+  return <main className="entry"><div className="entry-inner stack-lg"><PageHead title="운영 관리" desc="매장 계정으로 로그인하거나 로컬 체험을 시작하세요."/>
     <ErrorText error={action.error||ops.error}/>
     {ops.configured?<section className="panel stack-md">
       {ops.session?<><p>로그인되어 있습니다.</p>{ops.profile&&<Button to={paths[ops.profile.role]}>내 매장으로</Button>}<Button disabled={action.busy} variant="secondary" onClick={()=>action.run(ops.signOut,'로그아웃했습니다.')}>로그아웃</Button><Field id="new-password" label="초대 수락 후 비밀번호 설정 (8자 이상)"><input id="new-password" className="input" type="password" autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)}/></Field><Button disabled={action.busy} onClick={()=>action.run(async()=>{if(password.length<8)throw new Error('8자 이상으로 입력하세요.');await ops.changePassword(password);setPassword('');},'비밀번호를 설정했습니다.')}>비밀번호 저장</Button></>:

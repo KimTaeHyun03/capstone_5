@@ -25,6 +25,11 @@ export function csvRows(text) {
   return rows;
 }
 
+// 재료 사용 단위: 한 번에 얼마인지 알 수 있는 단위만 쓴다 ('병'·'박스' 같은 포장 단위는 발주 단위명으로)
+export const INGREDIENT_UNITS = ['kg', 'g', 'L', 'mL', '개'];
+const UNIT_ALIASES = { kg: 'kg', g: 'g', l: 'L', ml: 'mL', 개: '개' };
+export const normalizeIngredientUnit = (v) => UNIT_ALIASES[String(v ?? '').trim().toLowerCase()] ?? null;
+
 export const MAX_CATALOG_ROWS = 500;
 
 // 종류별 열 정의: required 는 꼭 있어야 하는 열, optional 은 있어도 되는 열
@@ -38,18 +43,18 @@ export const CATALOG_SPEC = {
       ['원두', 'kg', '28000', '5', '1', 'kg', '빈하우스'],
       ['우유', 'L', '2400', '20', '12', '12L 묶음', '서울우유 대리점'],
     ],
-    help: '재료 이름, 사용 단위(kg·L·개), 사용 단위당 단가(원), 최소 보유량, 1회 발주 단위당 사용 수량(order_quantity)은 필수이고, 발주 단위명(order_unit_name)과 거래처(supplier)는 선택입니다.',
+    help: '재료 이름, 사용 단위(kg·g·L·mL·개), 사용 단위당 단가(원), 최소 보유량, 1회 발주 단위당 사용 수량(order_quantity)은 필수이고, 발주 단위명(order_unit_name)과 거래처(supplier)는 선택입니다.',
   },
   menu: {
     label: '메뉴',
     required: ['menu_name', 'price'],
-    optional: ['category', 'is_on_sale'],
+    optional: ['category', 'is_on_sale', 'sale_unit'],
     sample: [
-      ['menu_name', 'category', 'price', 'is_on_sale'],
-      ['아메리카노', '커피', '4500', 'Y'],
-      ['카페라떼', '커피', '5000', 'Y'],
+      ['menu_name', 'category', 'price', 'is_on_sale', 'sale_unit'],
+      ['아메리카노', '커피', '4500', 'Y', '잔'],
+      ['카페라떼', '커피', '5000', 'Y', '잔'],
     ],
-    help: '메뉴 이름과 판매가(원)는 필수이고, 분류(category)와 판매 여부(is_on_sale: Y/N, 비우면 판매 중)는 선택입니다.',
+    help: '메뉴 이름과 판매가(원)는 필수이고, 분류(category), 판매 여부(is_on_sale: Y/N, 비우면 판매 중), 판매 단위(sale_unit: 잔·개 등, 비우면 분류로 정함)는 선택입니다.',
   },
   recipe: {
     label: '레시피',
@@ -109,7 +114,8 @@ export function parseCatalogCSV(raw, kind, existing = {}) {
       const r = Object.fromEntries(headers.map((h, j) => [h, cells[j].trim()]));
       if (kind === 'ingredient') {
         const name = text(r.ingredient_name, '재료 이름', 100);
-        const unit = text(r.unit, '사용 단위', 20);
+        const unit = normalizeIngredientUnit(text(r.unit, '사용 단위', 20));
+        if (!unit) throw new Error('사용 단위는 kg, g, L, mL, 개 중 하나로 적으세요. 병·박스처럼 용량을 알 수 없는 단위는 쓸 수 없습니다(발주 단위명에 적으세요).');
         if (seen.has(norm(name))) throw new Error(`재료 "${name}"이(가) 파일 안에 두 번 있습니다.`);
         seen.add(norm(name));
         return { name, unit, price: num(r.unit_price, '단가', { integer: true }), min: num(r.min_stock, '최소 보유량'),
@@ -122,7 +128,8 @@ export function parseCatalogCSV(raw, kind, existing = {}) {
         seen.add(norm(name));
         const flag = norm(r.is_on_sale ?? '');
         if (!YES.has(flag) && !NO.has(flag)) throw new Error('판매 여부(is_on_sale)는 Y 또는 N으로 적으세요.');
-        return { name, category: text(r.category, '분류', 50, { required: false }) || '기타', price: num(r.price, '판매가', { integer: true }), onSale: YES.has(flag) };
+        const unit = text(r.sale_unit, '판매 단위', 10, { required: false });
+        return { name, category: text(r.category, '분류', 50, { required: false }) || '기타', price: num(r.price, '판매가', { integer: true }), onSale: YES.has(flag), ...(unit ? { unit } : {}) };
       }
       // recipe
       const menu = text(r.menu_name, '메뉴 이름', 100);

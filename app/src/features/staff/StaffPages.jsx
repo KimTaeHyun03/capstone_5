@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Field, Icon, Modal, Segment, useToast } from '../../components/ui/index.jsx';
-import { DAYS, NEXT_DATES, NEXT_RANGE, SHIFTS, THIS_DATES, TODAY, ME_STAFF_ID, staffById, staffByDbId, MY_SHIFTS_DONE } from '../../mocks/data.js';
+import { DAYS, SHIFTS } from '../../domain/constants.js';
+import { staffById, staffByDbId } from '../../state/staffRegistry.js';
+import { getCalendar } from '../../lib/calendar.js';
 import { cellKey, fmtRange, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useAuth } from '../../lib/auth.jsx';
@@ -8,13 +10,6 @@ import { submitShortageReport } from '../../lib/alerts.js';
 import { clockIn, clockOut, fetchMyPay, fetchToday, kst } from '../../lib/attendance.js';
 import { useDbUserId } from '../../lib/currentUser.js';
 
-const ME = staffById[ME_STAFF_ID];
-// 이번 주 확정 근무 (정윤수)
-const THIS_WEEK = [
-  { di: 0, shift: 'pm' }, { di: 1, shift: 'pm' }, { di: 2, shift: 'pm' },
-  { di: 4, shift: 'pm' }, { di: 5, shift: 'mid' }, { di: 6, shift: 'pm' },
-].map((w) => ({ ...w, status: w.di < TODAY.dayIndex ? 'done' : w.di === TODAY.dayIndex ? 'today' : 'next' }));
-const COWORKERS = { 0: ['s3'], 1: ['s6'], 2: ['s5'], 4: ['s3'], 5: ['s3', 's5'], 6: ['s4'] };
 const shiftOf = (id) => SHIFTS.find((s) => s.id === id);
 
 function DayRow({ di, dates, shift, status, coworkers }) {
@@ -37,15 +32,16 @@ export function StaffSchedule() {
   const { schedState, assign, thisWeek } = useApp();
   const dbUserId = useDbUserId();
   const { account } = useAuth();
-  // 로그인한 직원. 화면 직원 목록에 아직 없으면(근무표가 없을 때 등) 로그인 계정 이름을 쓰고, 계정이 없는 예시 모드에서만 예시 직원(정윤수)을 쓴다.
-  const me = (dbUserId && staffByDbId[dbUserId]) || (account ? { id: null, name: account.name } : ME);
+  const { TODAY, THIS_DATES, NEXT_DATES, NEXT_RANGE } = getCalendar();
+  // 로그인한 직원. 화면 직원 목록에 아직 없으면(근무표가 없을 때 등) 로그인 계정 이름을 쓴다.
+  const me = (dbUserId && staffByDbId[dbUserId]) || { id: null, name: account?.name ?? '' };
   const [week, setWeek] = useState('this');
   const statusOf = (di) => (di < TODAY.dayIndex ? 'done' : di === TODAY.dayIndex ? 'today' : 'next');
-  // 이번 주: DB 에서 읽었으면 확정 근무표에서 내 근무를 뽑고, 예시 모드면 예시 근무를 쓴다
+  // 이번 주: 확정 근무표에서 내 근무를 뽑는다 (아직 못 읽었으면 빈 목록)
   const thisList = thisWeek
     ? DAYS.flatMap((_, di) => SHIFTS.filter((s) => (thisWeek.assign[cellKey(di, s.id)] || []).includes(me.id))
         .map((s) => ({ di, shift: s.id, status: statusOf(di), coworkers: thisWeek.assign[cellKey(di, s.id)].filter((id) => id !== me.id) })))
-    : THIS_WEEK.map((w) => ({ ...w, coworkers: COWORKERS[w.di] || [] }));
+    : [];
   const today = thisList.find((w) => w.status === 'today') ?? thisList.find((w) => w.status === 'next') ?? thisList[thisList.length - 1];
   const ts = today && shiftOf(today.shift);
   const todayLabel = today?.status === 'today' ? '오늘' : `${DAYS[today?.di]}요일`;
@@ -93,6 +89,7 @@ export function StaffSchedule() {
 
 /* 2-1 · 가능시간 등록·수정 */
 export function StaffAvailability() {
+  const { NEXT_DATES, NEXT_RANGE } = getCalendar();
   const { myAvail, setMyAvail, myMaxHours, availSubmitted, submitMyAvail } = useApp();
   const toast = useToast();
   const [maxH, setMaxH] = useState(String(myMaxHours));
@@ -157,7 +154,7 @@ export function StaffAvailability() {
 
 /* 3-1 · 출근·퇴근 기록 */
 export function StaffClock() {
-  const { clock: sampleClock, setClock, notify, inventorySource, loadAlerts } = useApp();
+  const { loadAlerts } = useApp();
   const me = useDbUserId();
   const { account } = useAuth();
   const toast = useToast();
@@ -167,26 +164,18 @@ export function StaffClock() {
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000 * 15); return () => clearInterval(t); }, []);
   const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  // DB 연결 시: 오늘의 확정 배정(예정)과 출퇴근 기록을 DB에서 읽는다. 아니면 예시 동작.
-  const fromDb = inventorySource === 'db';
+  // 오늘의 확정 배정(예정)과 출퇴근 기록을 DB에서 읽는다.
   const [today, setToday] = useState(null);
   const reloadToday = () => fetchToday(me).then(setToday).catch((e) => console.warn('출퇴근 조회 실패:', e.message));
-  useEffect(() => { if (fromDb && me) reloadToday(); }, [fromDb, me]); // eslint-disable-line react-hooks/exhaustive-deps
-  const clock = fromDb ? (today?.rec ?? { in: null, out: null }) : sampleClock;
-  const samplePlan = shiftOf('pm');
-  const planStart = fromDb ? today?.plan?.start : `${String(samplePlan.start).padStart(2, '0')}:00`;
-  const planEnd = fromDb ? today?.plan?.end : `${samplePlan.end}:00`;
-  const planText = fromDb ? (today?.plan ? `${planStart}–${planEnd}` : '없음') : `${samplePlan.label} ${fmtRange([samplePlan.start, samplePlan.end])}`;
-  const dateLabel = fromDb ? kst(now).label : TODAY.label;
+  useEffect(() => { if (me) reloadToday(); }, [me]); // eslint-disable-line react-hooks/exhaustive-deps
+  const clock = today?.rec ?? { in: null, out: null };
+  const planStart = today?.plan?.start;
+  const planEnd = today?.plan?.end;
+  const planText = today?.plan ? `${planStart}–${planEnd}` : '없음';
+  const dateLabel = kst(now).label;
   const stage = !clock.in ? 'in' : !clock.out ? 'out' : 'done';
   const record = async () => {
     const kind = confirm;
-    if (!fromDb) {
-      if (kind === 'in') { setClock({ in: hhmm, out: null }); toast(`${hhmm} 출근을 기록했습니다.`); }
-      else { setClock((c) => ({ ...c, out: hhmm })); notify(`${ME.name} 님이 ${hhmm}에 퇴근했습니다`); toast(`${hhmm} 퇴근을 기록했습니다. 수고하셨어요!`); }
-      setConfirm(null);
-      return;
-    }
     setSaving(true);
     try {
       // 판정(지각·조퇴)·근무시간·급여 갱신은 DB 트리거가 처리한다.
@@ -229,17 +218,15 @@ export function StaffClock() {
 
 /* 3-2 · 급여 확인 */
 export function StaffPay() {
-  const { inventorySource } = useApp();
   const me = useDbUserId();
-  // DB 연결 시: 이번 달 출퇴근 기록과 주휴수당을 DB에서 읽는다. 아니면 예시 데이터.
+  // 이번 달 출퇴근 기록과 주휴수당을 DB에서 읽는다. 읽는 동안에는 빈 값을 보여 준다.
   const [pay, setPay] = useState(null);
   useEffect(() => {
-    if (inventorySource === 'db' && me) fetchMyPay(me).then(setPay).catch((e) => console.warn('급여 조회 실패:', e.message));
-  }, [inventorySource, me]);
-  const live = inventorySource === 'db'; // 실제 매장이면 불러오는 동안 예시(정윤수) 근무 내역·시급을 보여 주지 않는다
-  const shiftsDone = pay ? pay.shifts : live ? [] : MY_SHIFTS_DONE;
-  const wage = pay ? pay.wage : live ? 0 : ME.wage;
-  const month = pay ? pay.month : 10;
+    if (me) fetchMyPay(me).then(setPay).catch((e) => console.warn('급여 조회 실패:', e.message));
+  }, [me]);
+  const shiftsDone = pay ? pay.shifts : [];
+  const wage = pay ? pay.wage : 0;
+  const month = pay ? pay.month : Number(getCalendar().TODAY.label.split('.')[0]);
   const holidayPay = pay ? pay.holidayPay : 0;
   const hours = shiftsDone.reduce((a, s) => a + s.hours, 0);
   const total = Math.round(hours * wage) + holidayPay;
@@ -283,7 +270,7 @@ export function StaffReport() {
   const [err, setErr] = useState('');
   const submit = async () => {
     if (!sel) { setErr('부족한 재료를 하나 고르세요.'); document.getElementById('rp-first')?.focus(); return; }
-    if (inventorySource !== 'db') { toast('DB에 연결되지 않아 신고할 수 없습니다.'); return; }
+    if (inventorySource !== 'db') { toast('재고 정보를 아직 불러오지 못했습니다. 잠시 뒤에 다시 시도하세요.'); return; }
     const it = inventory.find((i) => i.id === sel);
     setSaving(true);
     try {
@@ -296,7 +283,7 @@ export function StaffReport() {
       toast(`신고하지 못했습니다. ${e.message}`);
     } finally { setSaving(false); }
   };
-  const mine = reports.filter((r) => r.by === (account?.name ?? ME.name));
+  const mine = reports.filter((r) => r.by === (account?.name ?? ''));
   return (
     <>
       <div className="hello">

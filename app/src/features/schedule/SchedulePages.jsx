@@ -1,64 +1,15 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, EmptyState, Field, Modal, PageHead, Panel, SampleTag, Segment, useToast } from '../../components/ui/index.jsx';
-import { DAYS, NEXT_DATES, NEXT_RANGE, OWNER, SHIFTS, STAFF, THIS_DATES, staffById } from '../../mocks/data.js';
-import { NEED, canAssign, cellKey, fmtAvail, fmtRange, hoursOf, shiftHours, shortCells, supportCount, violations } from '../../domain/index.js';
+import { Alert, Badge, Button, EmptyState, Field, Modal, PageHead, Panel, Segment, useToast } from '../../components/ui/index.jsx';
+import { DAYS, SHIFTS } from '../../domain/constants.js';
+import { staffById } from '../../state/staffRegistry.js';
+import { getCalendar } from '../../lib/calendar.js';
+import { canAssign, cellKey, fmtAvail, fmtRange, hoursOf, shiftHours, shortCells, violations } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useAuth } from '../../lib/auth.jsx';
 import { useBase, useRolePath } from '../../layouts/Layouts.jsx';
 
-/* 2-2 · 가능시간 현황 (점주·매니저) */
-export function AvailabilityPage() {
-  return (
-    <>
-      <PageHead eyebrow="근무 관리" title="가능시간 현황" desc={`${NEXT_RANGE} 직원이 제출한 근무 가능시간과 시프트별 지원 인원입니다.`} />
-      <div className="stack-lg">
-        <Alert tone="warning" title="한지우 님이 아직 가능시간을 제출하지 않았습니다">초대 수락 전 계정입니다. 지난주 가능시간으로 표시합니다.</Alert>
-        <Panel id="av" title="직원별 가능시간" meta="시:시 형식" actions={<SampleTag />}>
-          <div className="sched-wrap" tabIndex={0} role="region" aria-label="직원별 가능시간 표">
-            <div className="avail-grid" role="table" aria-label="직원별 요일 가능시간">
-              <div role="row" style={{ display: 'contents' }}>
-                <span role="columnheader" className="hm-colhead">직원</span>
-                {DAYS.map((d, i) => <span key={d} role="columnheader" className="hm-colhead">{d} {NEXT_DATES[i]}</span>)}
-              </div>
-              {STAFF.map((st) => (
-                <div role="row" key={st.id} style={{ display: 'contents' }}>
-                  <span role="rowheader" className="av-name">{st.name}<small>{st.role} · 주 {st.maxHours}시간</small></span>
-                  {DAYS.map((_, di) => {
-                    const a = st.avail[di];
-                    return <span key={di} role="cell" className={`av-cell ${a ? 'av-on' : 'av-off'}`}>{a ? fmtRange(a) : '불가'}</span>;
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        </Panel>
-        <Panel id="av-sum" title="시프트별 지원 인원 vs 필요 인원">
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th scope="col">시프트</th>{DAYS.map((d) => <th key={d} scope="col" className="num">{d}</th>)}</tr></thead>
-              <tbody>
-                {SHIFTS.map((s) => (
-                  <tr key={s.id}>
-                    <th scope="row">{s.label} <span className="muted">{fmtRange([s.start, s.end])}</span></th>
-                    {DAYS.map((_, di) => {
-                      const sup = supportCount(di, s);
-                      const need = NEED[cellKey(di, s.id)];
-                      return <td key={di} className="num">{sup < need ? <Badge tone="red">{sup}/{need}</Badge> : <span>{sup}/{need}</span>}</td>;
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="help" style={{ marginTop: 8 }}>지원 인원 / 필요 인원 · 빨간 배지 = 지원자가 필요 인원보다 적은 시프트</p>
-        </Panel>
-      </div>
-    </>
-  );
-}
-
 /* 공용 스케줄 그리드 */
-export function ScheduleGrid({ assign, need: needMap = NEED, edited = [], locked, onEdit, highlight, dates = NEXT_DATES }) {
+export function ScheduleGrid({ assign, need: needMap, edited = [], locked, onEdit, highlight, dates = getCalendar().NEXT_DATES }) {
   return (
     <>
       <div className="sched-wrap" tabIndex={0} role="region" aria-label="주간 스케줄, 가로로 스크롤할 수 있습니다">
@@ -104,7 +55,7 @@ function EditCellModal({ di, shift, assign, onClose, onSave }) {
   const hrs = hoursOf(assign, staff);
   const toggle = (id) => setSel((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   return (
-    <Modal title={`${DAYS[di]}요일 ${shift.label} 배정 수정`} desc={`${NEXT_DATES[di]} ${fmtRange([shift.start, shift.end])} · 필요 ${need[k]}명`} onClose={onClose}
+    <Modal title={`${DAYS[di]}요일 ${shift.label} 배정 수정`} desc={`${getCalendar().NEXT_DATES[di]} ${fmtRange([shift.start, shift.end])} · 필요 ${need[k]}명`} onClose={onClose}
       footer={<><Button variant="secondary" onClick={onClose}>취소</Button><Button onClick={() => onSave(k, sel)}>저장 ({sel.length}명)</Button></>}>
       <div className="list" role="group" aria-label="배정할 직원">
         {staff.map((st) => {
@@ -174,7 +125,8 @@ function Steps({ state }) {
 /* 2-3 · 2-5 · 스케줄 초안 자동 생성·확정 (점주) */
 export function SchedulePage() {
   const { account } = useAuth();
-  const myId = account?.id ?? OWNER.userId; // 로그인한 점주(확정·수정자)
+  const myId = account?.id; // 로그인한 점주(확정·수정자)
+  const { NEXT_RANGE } = getCalendar();
   const { schedState: state, assign, need, staff, edited, setEdited, generateSchedule, notify, editScheduleCell, changeScheduleState } = useApp();
   const toast = useToast();
   const fail = saveFailed(toast);
@@ -279,6 +231,7 @@ export function SchedulePage() {
 /* 2-4 · 초안 검토 (매니저) — 조회와 검토 의견만. 배정 수정·확정은 점주가 한다 */
 export function ScheduleReviewPage() {
   const { account } = useAuth();
+  const { NEXT_RANGE } = getCalendar();
   const { schedState: state, assign, need, staff, edited, completeScheduleReview } = useApp();
   const toast = useToast();
   const fail = saveFailed(toast);
@@ -328,6 +281,7 @@ export function ScheduleReviewPage() {
 const STATE_LABEL = { none: null, draft: '초안', review: '매니저 검토 중', published: '확정·공개' };
 const DB_STATUS_LABEL = { 초안: '초안', 검토중: '매니저 검토 중', 확정: '확정·공개' };
 export function ScheduleOverviewPage() {
+  const { NEXT_RANGE, NEXT_DATES, THIS_DATES } = getCalendar();
   const { schedState, assign, need, thisWeek } = useApp();
   const base = useBase();
   const isManager = base === '/manager';
@@ -346,7 +300,7 @@ export function ScheduleOverviewPage() {
       <div className="stack-lg">
         <Segment label="주 선택" value={week} onChange={setWeek} options={[{ value: 'this', label: '이번 주' }, { value: 'next', label: '다음 주' }]} />
         {thisWeek === null && isThis ? (
-          <Panel id="ov-demo"><EmptyState icon="calendar" title="예시 모드에서는 이번 주 근무표가 없습니다">로그인하면 DB의 확정 근무표를 볼 수 있습니다.</EmptyState></Panel>
+          <p role="status">근무표를 불러오는 중입니다…</p>
         ) : !hasSchedule ? (
           <Panel id="ov-empty"><EmptyState icon="calendar" title={`${isThis ? '이번 주' : '다음 주'} 근무표가 아직 없습니다`}>{isThis ? '이번 주 근무표가 만들어지지 않았습니다.' : '스케줄 편성에서 초안을 만들면 여기에 표시됩니다.'}</EmptyState></Panel>
         ) : (

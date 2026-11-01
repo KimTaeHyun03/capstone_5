@@ -1,6 +1,6 @@
 // 5-1 권장 발주량 · 5-2 발주 등록 · 5-3 입고 처리 — order_recommendation / purchase_order 조회와 쓰기(RPC)
 import { supabase } from './supabase.js';
-import { DAYS } from '../mocks/data.js';
+import { DAYS } from '../domain/constants.js';
 
 const db = () => {
   if (!supabase) throw new Error('Supabase 환경변수가 없습니다');

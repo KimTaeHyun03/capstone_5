@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, EmptyState, Field, Meter, PageHead, Panel, SampleTag, Segment, StatCard, useToast } from '../../components/ui/index.jsx';
+import { Alert, Badge, Button, EmptyState, Field, Meter, PageHead, Panel, Segment, StatCard, useToast } from '../../components/ui/index.jsx';
 import { stockLevel, won } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useBase, useRolePath } from '../../layouts/Layouts.jsx';
@@ -34,7 +34,7 @@ export function InventoryPage() {
           <StatCard label="최소 보유량 미달" value={inventory.filter((i) => stockLevel(i) === 'low').length} unit="개" sub="부족 알림 발송됨" />
           <StatCard label="재고 금액" value={won(value)} sub="단가 기준" />
         </div>
-        <Panel id="inv" title="재료별 재고" actions={inventorySource === 'sample' ? <SampleTag /> : null}>
+        <Panel id="inv" title="재료별 재고">
           <div style={{ marginBottom: 16 }}>
             <Segment label="상태 필터" value={filter} onChange={setFilter} options={[{ value: 'all', label: '전체' }, { value: 'low', label: '부족' }, { value: 'warn', label: '주의' }, { value: 'ok', label: '충분' }]} />
           </div>
@@ -158,7 +158,7 @@ export function StocktakePage() {
     setErrors(errs);
     const bad = inventory.find((i) => errs[i.id]);
     if (bad) { document.getElementById(`st-${bad.id}`)?.focus(); return; }
-    if (inventorySource !== 'db') { toast('DB에 연결되지 않아 저장할 수 없습니다.'); return; }
+    if (inventorySource !== 'db') { toast('재고 정보를 아직 불러오지 못했습니다. 잠시 뒤에 다시 시도하세요.'); return; }
     setSaving(true);
     try {
       // 재고 변동 기록(실사 보정·폐기) 저장 + 재고 반영은 DB 함수가 처리한다. 부족 알림도 DB 트리거가 보낸다.

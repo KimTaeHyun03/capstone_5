@@ -1,5 +1,5 @@
 /* 화면과 분리된 계산 로직 (순수 함수). DB 연동 후에도 그대로 쓴다. */
-import { DAYS, HOURS, FORECAST, SHIFTS, STAFF, INGREDIENTS, MENUS, RECIPES } from '../mocks/data.js';
+import { DAYS, SHIFTS } from './constants.js';
 
 // 1-3 · 시간대 예측 매출(천원) → 필요 인원
 // 시간당 예측 매출(천원) → 필요 인원. DB 의 app.required_staff(8만/12만)와 같은 기준이다.
@@ -39,39 +39,13 @@ export function rangesToAvail(ranges) {
   return out;
 }
 
-// 시프트별 필요 인원 = 시프트 안 시간대 중 최대 필요 인원
-export const NEED = {};
-DAYS.forEach((_, di) =>
-  SHIFTS.forEach((s) => {
-    const idx = HOURS.map((h, i) => (h >= s.start && h < s.end ? i : -1)).filter((i) => i >= 0);
-    NEED[cellKey(di, s.id)] = Math.max(...idx.map((i) => needStaff(FORECAST[di][i])));
-  })
-);
+// 시프트별 필요 인원 기본값(예측이 없는 칸은 1명). 실제 값은 DB 의 예측(sales_forecast)에서 온다.
+export const emptyNeed = () => Object.fromEntries(DAYS.flatMap((_, di) => SHIFTS.map((s) => [cellKey(di, s.id), 1])));
 
 // 2-2 · 시간대별 지원 인원 (availability 집계값)
-export const supportCount = (di, shift, staff = STAFF) => staff.filter((st) => canWork(st, di, shift)).length;
+export const supportCount = (di, shift, staff) => staff.filter((st) => canWork(st, di, shift)).length;
 
-// 2-3 · 스케줄 초안 자동 생성 — 필요 인원이 많은 칸부터, 남은 근무시간이 많은 사람 우선
-// Supabase 연결 시에는 DB 함수 generate_schedule_draft 가 같은 규칙으로 만든다. 이 함수는 연결이 없을 때의 예시용.
-export function generateDraft() {
-  const remaining = Object.fromEntries(STAFF.map((s) => [s.id, s.maxHours]));
-  const cells = [];
-  DAYS.forEach((_, di) => SHIFTS.forEach((s) => cells.push({ di, s })));
-  cells.sort((a, b) => NEED[cellKey(b.di, b.s.id)] - NEED[cellKey(a.di, a.s.id)] || b.di - a.di);
-  const out = {};
-  cells.forEach(({ di, s }) => {
-    const need = NEED[cellKey(di, s.id)];
-    const picks = STAFF.filter((st) => canWork(st, di, s) && remaining[st.id] >= shiftHours(s))
-      .sort((a, b) => remaining[b.id] - remaining[a.id])
-      .slice(0, need)
-      .map((st) => st.id);
-    picks.forEach((id) => (remaining[id] -= shiftHours(s)));
-    out[cellKey(di, s.id)] = picks;
-  });
-  return out;
-}
-
-export const hoursOf = (assign, staff = STAFF) => {
+export const hoursOf = (assign, staff) => {
   const h = Object.fromEntries(staff.map((s) => [s.id, 0]));
   Object.entries(assign).forEach(([k, ids]) => {
     const s = SHIFTS.find((x) => x.id === k.split('-')[1]);
@@ -80,10 +54,10 @@ export const hoursOf = (assign, staff = STAFF) => {
   return h;
 };
 
-export const shortCells = (assign, need = NEED) => Object.keys(need).filter((k) => (assign[k] || []).length < need[k]);
+export const shortCells = (assign, need) => Object.keys(need).filter((k) => (assign[k] || []).length < need[k]);
 
 // 2-4 · 수정 배정 재검증 (주 최대 근무시간·가능시간 위반)
-export function violations(assign, staff = STAFF) {
+export function violations(assign, staff) {
   const hrs = hoursOf(assign, staff);
   const list = [];
   staff.forEach((st) => { if (hrs[st.id] > st.maxHours) list.push(`${st.name} 주 최대 ${st.maxHours}시간 초과 (${hrs[st.id]}시간)`); });
@@ -99,7 +73,7 @@ export function violations(assign, staff = STAFF) {
 }
 
 // 2-4 · E4 — 경고를 달 배정 칸 목록 [{ k, id }] (shift_assignment.has_warning = true 대상)
-export function warningCells(assign, staff = STAFF) {
+export function warningCells(assign, staff) {
   const hrs = hoursOf(assign, staff);
   const out = [];
   Object.entries(assign).forEach(([k, ids]) => {
@@ -120,11 +94,6 @@ export const recommendQty = (it) => {
 };
 
 export const stockLevel = (it) => (it.stock < it.min ? 'low' : it.stock < it.min * 1.5 ? 'warn' : 'ok');
-
-// 7-4 · 메뉴 원가
-const ingById = Object.fromEntries(INGREDIENTS.map((i) => [i.id, i]));
-export const menuCost = (menuId) => Math.round((RECIPES[menuId] || []).reduce((a, [iid, q]) => a + ingById[iid].price * q, 0));
-export const menusWithoutRecipe = () => MENUS.filter((m) => !(RECIPES[m.id] || []).length);
 
 // 3-1 · 지각·조퇴 판정
 const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };

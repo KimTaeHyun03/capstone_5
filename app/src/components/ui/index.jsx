@@ -22,7 +22,6 @@ export function IconButton({ icon, label, ...rest }) {
 const TONE = { gray: 'gray', blue: 'blue', green: 'green', orange: 'orange', red: 'red' };
 export const Badge = ({ tone = 'gray', children }) => <span className={`badge badge-${TONE[tone]}`}>{children}</span>;
 
-export const SampleTag = () => <span className="tag-sample" title="DB 연동 전 예시 데이터">예시 데이터</span>;
 
 const ALERT_ICON = { info: 'info', success: 'check', warning: 'alert', danger: 'alert' };
 export function Alert({ tone = 'info', title, children, action, live }) {

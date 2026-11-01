@@ -1,8 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { Alert, Badge, Button, EmptyState, Modal, PageHead, Panel, SampleTag, StatCard, useToast } from '../../components/ui/index.jsx';
-import { coefficient, recommendQty, won } from '../../domain/index.js';
+import { Alert, Badge, Button, EmptyState, Modal, PageHead, Panel, StatCard, useToast } from '../../components/ui/index.jsx';
+import { won } from '../../domain/index.js';
 import { runPeriodClose } from '../../lib/correction.js';
-import { FORECAST_ERRORS } from '../../mocks/data.js';
 import { useApp } from '../../state/AppState.jsx';
 import { useRolePath } from '../../layouts/Layouts.jsx';
 import { useNavigate } from 'react-router-dom';
@@ -28,8 +27,8 @@ export function RecommendPage() {
     return { end: iso(end), label: `${md(start)}–${md(end)}` };
   })();
   const lastWeekClosed = !!correction?.errors.some((e) => e.end === lastWeek.end);
-  // DB 에 저장된 권장 발주량(5-E1)이 있으면 그것을, 없으면 화면 내 예시 계산을 쓴다.
-  const recOf = (it) => recs[it.id]?.rec ?? recommendQty(it);
+  // DB 에 저장된 권장 발주량(5-E1). 아직 계산 전이면 0
+  const recOf = (it) => recs[it.id]?.rec ?? 0;
   const init = () => Object.fromEntries(inventory.map((it) => [it.id, String(recOf(it))]));
   const [qty, setQty] = useState(init);
   const [errors, setErrors] = useState({});
@@ -86,7 +85,7 @@ export function RecommendPage() {
     setErrors(errs);
     const bad = inventory.filter((it) => errs[it.id]);
     if (bad.length) { document.getElementById(`qty-${bad[0].id}`)?.focus(); return; }
-    if (inventorySource !== 'db') { toast('DB에 연결되지 않아 발주를 저장할 수 없습니다.'); return; }
+    if (inventorySource !== 'db') { toast('재고 정보를 아직 불러오지 못했습니다. 잠시 뒤에 다시 시도하세요.'); return; }
     setSubmitting(true);
     try {
       // 발주는 '대기'로 저장된다. 권장량과 다르게 고친 품목은 DB가 조정 여부를 표시한다.
@@ -128,7 +127,7 @@ export function RecommendPage() {
             </div>
           </div>
         )}
-        <Panel id="rc" title="재료별 권장 발주량" actions={inventorySource === 'sample' ? <SampleTag /> : <Button variant="text" onClick={recalc} disabled={calculating}>{calculating ? '계산 중…' : '지금 재고로 다시 계산'}</Button>}>
+        <Panel id="rc" title="재료별 권장 발주량" actions={<Button variant="text" onClick={recalc} disabled={calculating}>{calculating ? '계산 중…' : '지금 재고로 다시 계산'}</Button>}>
           <div className="table-wrap" tabIndex={0} role="region" aria-label="권장 발주량 표">
             <table>
               <caption className="sr-only">재료별 권장 발주량과 예상 금액</caption>
@@ -209,7 +208,7 @@ export function OrdersPage() {
           <StatCard label="이번 달 발주" value={orders.length} unit="건" />
           <StatCard label="이번 달 발주 금액" value={won(orders.reduce((a, o) => a + o.lines.reduce((s, l) => s + l.qty * inventory.find((i) => i.id === l.id).price, 0), 0))} />
         </div>
-        <Panel id="od" title="발주 내역" actions={inventorySource === 'sample' ? <SampleTag /> : null}><OrderTable orders={orders} inventory={inventory} /></Panel>
+        <Panel id="od" title="발주 내역"><OrderTable orders={orders} inventory={inventory} /></Panel>
       </div>
     </>
   );
@@ -262,7 +261,7 @@ export function ReceivePage() {
   const waiting = orders.filter((o) => o.status === '대기');
   const done = orders.filter((o) => o.status !== '대기');
   const onConfirm = async (order, received) => {
-    if (inventorySource !== 'db') { toast('DB에 연결되지 않아 입고를 저장할 수 없습니다.'); return; }
+    if (inventorySource !== 'db') { toast('재고 정보를 아직 불러오지 못했습니다. 잠시 뒤에 다시 시도하세요.'); return; }
     try {
       // 상태 전환·재고 가산·변동 기록은 DB(입고 트리거)가 처리한다. 발주량과 다르면 차이 사유를 남긴다.
       await receiveOrder(me, order.lines.map((l) => ({
@@ -294,13 +293,11 @@ export function CorrectionPage() {
   const { inventory, inventorySource, correction, reloadCorrection, reloadRecs, loadAlerts } = useApp();
   const toast = useToast();
   const [closing, setClosing] = useState(false);
-  // DB 의 마감 기록이 있으면 그것을, 없으면 예시 데이터를 쓴다.
-  const errors = correction?.errors ?? FORECAST_ERRORS;
-  const fromDb = !!correction;
+  const errors = correction?.errors ?? [];
   const ing = (id) => inventory.find((i) => i.id === id);
-  const ids = Object.keys(errors[errors.length - 1].rows).filter((id) => ing(id));
   const latest = errors[errors.length - 1];
-  const newCoef = (id) => correction?.coefs[id]?.value ?? coefficient(FORECAST_ERRORS, id);
+  const ids = latest ? Object.keys(latest.rows).filter((id) => ing(id)) : [];
+  const newCoef = (id) => correction?.coefs[id]?.value ?? 1;
   const totalWaste = ids.reduce((a, id) => a + latest.rows[id][2] * ing(id).price, 0);
   const avgErr = ids.reduce((a, id) => a + (latest.rows[id][0] ? Math.abs(latest.rows[id][1] - latest.rows[id][0]) / latest.rows[id][0] : 0), 0) / (ids.length || 1) * 100;
   const runClose = async () => {
@@ -315,8 +312,8 @@ export function CorrectionPage() {
   };
   // 3기간 연속으로 실제가 예측보다 12% 이상 적은 재료
   const overForecast = errors.length >= 3 ? ids.filter((id) => errors.slice(-3).every((e) => e.rows[id] && e.rows[id][0] > 0 && (e.rows[id][0] - e.rows[id][1]) / e.rows[id][0] >= 0.12)) : [];
-  // 실제 매장(DB)인데 마감 기록이 아직 없으면 예시 표 대신 안내를 보여 준다(예시는 체험 모드에서만)
-  if (inventorySource === 'db' && !correction) {
+  // 마감 기록이 아직 없으면 안내를 보여 준다
+  if (!correction) {
     return (
       <>
         <PageHead eyebrow="발주 관리" title="예측 오차 보정" desc="실제 소진량 = 기초 재고 + 입고 − 기말 재고. 예측과의 차이로 다음 발주의 보정 계수를 계산합니다."
@@ -339,7 +336,7 @@ export function CorrectionPage() {
           <StatCard label="다음 발주 반영" value="새 계수" sub="지난주 마감 실행 후 계산" />
         </div>
         {overForecast.length > 0 && <Alert tone="info" title={`${overForecast.map((id) => ing(id).name).join(', ')}은(는) 3주 연속 실제 소진이 예측보다 12% 이상 적었습니다`}>보정 계수를 낮춰 다음 권장량이 줄었습니다. 폐기량도 함께 줄어드는지 확인하세요.</Alert>}
-        <Panel id="ce" title="재료별 예측 vs 실제 (최근 3주)" actions={fromDb ? null : <SampleTag />}>
+        <Panel id="ce" title="재료별 예측 vs 실제 (최근 3주)" >
           <div className="table-wrap">
             <table>
               <thead><tr><th scope="col">재료</th>{errors.map((e) => <th key={e.period} scope="col" className="num">{e.period}<br /><span style={{ fontWeight: 400 }}>예측 / 실제 · 폐기</span></th>)}<th scope="col" className="num">새 보정 계수</th></tr></thead>

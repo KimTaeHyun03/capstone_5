@@ -1,6 +1,6 @@
 // 3-1 출퇴근 · 3-2 급여 · 3-3 인건비 비교 — attendance / payroll / shift_assignment 조회와 출퇴근(RPC)
 import { supabase } from './supabase.js';
-import { DAYS } from '../mocks/data.js';
+import { DAYS } from '../domain/constants.js';
 import { attendanceFlags } from '../domain/index.js';
 
 const db = () => {

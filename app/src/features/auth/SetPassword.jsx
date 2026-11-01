@@ -13,7 +13,7 @@ export function SetPasswordPage() {
   const [errors, setErrors] = useState({});
   const [failure, setFailure] = useState(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { document.title = '비밀번호 설정 · 카페 온기 운영 관리'; }, []);
+  useEffect(() => { document.title = '비밀번호 설정 · 운영 관리'; }, []);
 
   const submit = async (e) => {
     e.preventDefault();

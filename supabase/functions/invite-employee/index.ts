@@ -28,7 +28,7 @@ Deno.serve(async (request: Request) => {
     if (employee.auth_user_id) return reply({ error: '이미 로그인 계정에 연결된 직원입니다.' }, 409);
     const { data: invitation, error: inviteError } = await admin.auth.admin.inviteUserByEmail(employee.email, { redirectTo: appUrl });
     if (inviteError) return reply({ error: `초대 발송 실패: ${inviteError.message}` }, 400);
-    const { data: linked, error: linkError } = await admin.from('user_account').update({ auth_user_id: invitation.user.id, status: '활성' }).eq('user_id',employee.user_id).eq('store_id',actor.store_id).eq('email',employee.email).is('auth_user_id',null).select('user_id').single();
+    const { data: linked, error: linkError } = await admin.from('user_account').update({ auth_user_id: invitation.user.id }).eq('user_id',employee.user_id).eq('store_id',actor.store_id).eq('email',employee.email).is('auth_user_id',null).select('user_id').single();
     if (linkError || !linked) return reply({ error: '초대 메일은 발송되었지만 계정 연결에 실패했습니다. 관리자가 Auth 사용자와 직원 계정을 연결해야 합니다.' }, 409);
     return reply({ ok: true });
   } catch {

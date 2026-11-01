@@ -19,10 +19,11 @@ export const useBase = () => useContext(BaseCtx);
 export const useRolePath = () => { const base = useBase(); return (p = '') => (p ? `${base}/${p}` : base); };
 
 export function BrandMark({ to = '/' }) {
+  const { account } = useAuth();
   return (
     <Link className="brand-mark" to={to}>
       <span className="brand-logo"><Icon name="coffee" /></span>
-      카페 온기
+      {account?.storeName || '운영 관리'}
     </Link>
   );
 }
@@ -71,7 +72,7 @@ export function AdminLayout({ base, nav, user: demoUser }) {
     .find((it) => (it.path ? `${base}/${it.path}` : base) === pathname);
   useEffect(() => {
     setDrawer(false);
-    document.title = `${current ? current.label : '카페 온기'} · 카페 온기 운영 관리`;
+    document.title = `${current ? current.label : '홈'} · ${storeName} 운영 관리`;
   }, [pathname]);
   useEffect(() => {
     if (!drawer) return;
@@ -130,10 +131,11 @@ function NotifBell({ base }) {
 
 /* 알바생 모바일 셸 — 최대 480px 열, 하단 탭 5개 */
 export function StaffLayout() {
+  const { account } = useAuth();
   const logout = useLogout();
   const pathname = useScrollTop();
   const tab = STAFF_TABS.find((t) => (t.path ? `/staff/${t.path}` : '/staff') === pathname) || STAFF_TABS[0];
-  useEffect(() => { document.title = `${tab.label} · 카페 온기`; }, [tab]);
+  useEffect(() => { document.title = `${tab.label} · ${account?.storeName || '운영 관리'}`; }, [tab, account]);
   return (
     <BaseCtx.Provider value="/staff">
       <div className="staff-app">

@@ -202,7 +202,7 @@ export function StaffClock() {
     <>
       <section className="card">
         <div className="clock-face">
-          <span className="clock-date">{dateLabel} · {account?.storeName ?? '카페 온기'}</span>
+          <span className="clock-date">{dateLabel} · {account?.storeName ?? ''}</span>
           <span className="clock-time" aria-live="off">{hhmm}</span>
           <span className="muted">오늘 예정 {planText}</span>
         </div>

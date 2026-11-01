@@ -96,3 +96,8 @@ export async function setScheduleState(scheduleId, state, byUserId) {
     : { status: TO_DB[state], is_published: false };
   check(await supabase.from('work_schedule').update(patch).eq('schedule_id', scheduleId));
 }
+
+// 2-4 · 매니저 검토 완료(+의견). 매니저는 배정·상태를 직접 바꾸지 못하고 이 함수로만 완료한다
+export async function completeReview(scheduleId, comment) {
+  check(await supabase.rpc('submit_schedule_review', { p_schedule_id: scheduleId, p_comment: comment || null }));
+}

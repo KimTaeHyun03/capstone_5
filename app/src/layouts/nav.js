@@ -37,7 +37,7 @@ export const MANAGER_NAV = [
     { path: 'my-availability', label: '내 가능시간 등록', proc: '2-1' },
     { path: 'availability', label: '가능시간 현황', proc: '2-2' },
     { path: 'timetable', label: '근무표 조회', proc: '2-6' },
-    { path: 'schedule', label: '초안 검토·수정', proc: '2-4' },
+    { path: 'schedule', label: '초안 검토', proc: '2-4' },
     { path: 'clock', label: '출퇴근 기록', proc: '3-1' },
     { path: 'pay', label: '내 급여', proc: '3-2' },
   ] },

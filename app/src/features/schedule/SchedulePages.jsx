@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, EmptyState, Modal, PageHead, Panel, SampleTag, Segment, useToast } from '../../components/ui/index.jsx';
+import { Alert, Badge, Button, EmptyState, Field, Modal, PageHead, Panel, SampleTag, Segment, useToast } from '../../components/ui/index.jsx';
 import { DAYS, NEXT_DATES, NEXT_RANGE, OWNER, SHIFTS, STAFF, THIS_DATES, staffById } from '../../mocks/data.js';
 import { NEED, canAssign, cellKey, fmtAvail, fmtRange, hoursOf, shiftHours, shortCells, supportCount, violations } from '../../domain/index.js';
 import { useApp } from '../../state/AppState.jsx';
@@ -276,33 +276,40 @@ export function SchedulePage() {
   );
 }
 
-/* 2-4 · 초안 검토·수정 (매니저) */
+/* 2-4 · 초안 검토 (매니저) — 조회와 검토 의견만. 배정 수정·확정은 점주가 한다 */
 export function ScheduleReviewPage() {
   const { account } = useAuth();
-  const myId = account?.id ?? STAFF[0].userId; // 로그인한 매니저(수정자)
-  const { schedState: state, assign, need, staff, edited, notify, editScheduleCell, changeScheduleState } = useApp();
+  const { schedState: state, assign, need, staff, edited, completeScheduleReview } = useApp();
   const toast = useToast();
   const fail = saveFailed(toast);
-  const [editing, setEditing] = useState(null);
+  const [comment, setComment] = useState('');
   const viol = violations(assign, staff);
   const short = shortCells(assign, need);
-  const saveCell = (k, ids) => { editScheduleCell(k, ids, myId).catch(fail); setEditing(null); toast('배정을 수정했습니다. 규칙을 다시 확인했습니다.'); };
-  const done = () => { changeScheduleState('draft').catch(fail); notify(`${account?.name ?? ''} 매니저가 근무표 초안 검토를 마쳤습니다`); toast('검토 완료를 점주에게 알렸습니다.'); };
+  const done = () => {
+    const issues = [viol.length ? `규칙 위반 ${viol.length}건(${viol.join(' · ')})` : '', short.length ? `인원 부족 시프트 ${short.length}곳` : ''].filter(Boolean).join(', ');
+    const text = [comment.trim(), issues && !comment.trim() ? `확인 필요: ${issues}` : ''].filter(Boolean).join(' ');
+    completeScheduleReview(text).then(() => { setComment(''); toast('검토 완료를 점주에게 알렸습니다.'); }).catch(fail);
+  };
 
   return (
     <>
-      <PageHead eyebrow="근무 관리" title="초안 검토·수정" desc={`점주가 만든 ${NEXT_RANGE} 초안입니다. 칸을 눌러 배정을 바꾸면 가능시간·주 최대 근무시간을 다시 검사합니다.`}
-        actions={state === 'review' && <Button icon="check" onClick={done} disabled={viol.length > 0}>검토 완료</Button>} />
+      <PageHead eyebrow="근무 관리" title="초안 검토" desc={`점주가 만든 ${NEXT_RANGE} 초안입니다. 배정은 바꿀 수 없고, 확인한 뒤 의견을 남겨 검토를 완료하면 점주에게 알림이 갑니다.`}
+        actions={state === 'review' && <Button icon="check" onClick={done}>검토 완료</Button>} />
       <div className="stack-lg">
         {state === 'review' ? (
           <>
             {viol.length > 0
-              ? <Alert tone="danger" title={`규칙 위반 ${viol.length}건`}>{viol.join(' · ')} — 해결해야 검토를 완료할 수 있습니다.</Alert>
+              ? <Alert tone="warning" title={`규칙 위반 ${viol.length}건`}>{viol.join(' · ')} — 검토 완료 때 점주에게 함께 전달됩니다. 점주가 수정합니다.</Alert>
               : <Alert tone="success" title="규칙 위반이 없습니다">{short.length ? `인원 부족 시프트 ${short.length}곳은 점주에게 함께 전달됩니다.` : '모든 시프트가 충족됩니다.'}</Alert>}
-            <Panel id="rv" title="검토 중인 초안" meta={`수정한 칸 ${edited.length}곳`}>
-              <ScheduleGrid assign={assign} need={need} edited={edited} onEdit={(di, s) => setEditing({ di, s })} />
+            <Panel id="rv" title="검토 중인 초안" meta={edited.length ? `점주가 수정한 칸 ${edited.length}곳` : undefined}>
+              <ScheduleGrid assign={assign} need={need} edited={edited} locked />
             </Panel>
             <WeeklyHours assign={assign} />
+            <Panel id="rv-note" title="검토 의견 (선택)">
+              <Field id="rv-comment" label="점주에게 남길 의견" help="예: 토요일 저녁은 한 명 더 필요해 보입니다. 400자까지.">
+                <textarea id="rv-comment" className="input" rows={3} maxLength={400} value={comment} onChange={(e) => setComment(e.target.value)} />
+              </Field>
+            </Panel>
           </>
         ) : (
           <Panel id="rv-empty">
@@ -313,7 +320,6 @@ export function ScheduleReviewPage() {
           </Panel>
         )}
       </div>
-      {editing && <EditCellModal di={editing.di} shift={editing.s} assign={assign} onClose={() => setEditing(null)} onSave={saveCell} />}
     </>
   );
 }
@@ -336,7 +342,7 @@ export function ScheduleOverviewPage() {
   return (
     <>
       <PageHead eyebrow="근무 관리" title="근무표 조회" desc="이번 주와 다음 주 전체 근무표를 확인합니다. 배정을 바꾸려면 스케줄 편성(점주)·초안 검토(매니저)에서 수정하세요."
-        actions={<Button variant="secondary" icon="calendar" to={editPath}>{isManager ? '초안 검토·수정' : '스케줄 편성'}</Button>} />
+        actions={<Button variant="secondary" icon="calendar" to={editPath}>{isManager ? '초안 검토' : '스케줄 편성'}</Button>} />
       <div className="stack-lg">
         <Segment label="주 선택" value={week} onChange={setWeek} options={[{ value: 'this', label: '이번 주' }, { value: 'next', label: '다음 주' }]} />
         {thisWeek === null && isThis ? (

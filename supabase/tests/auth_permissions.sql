@@ -237,15 +237,37 @@ do $$
 declare v_id bigint := (select v from _t.ctx where k = 'sched');
 begin
   assert v_id is not null and exists (select 1 from work_schedule where schedule_id = v_id), '매니저가 초안 스케줄을 볼 수 없음';
-  -- 매니저: 검토 단계로 상태 변경, 배정 수정(교체)
-  assert _t.affected(format('update work_schedule set status = ''검토중'' where schedule_id = %s', v_id)) = 1, '매니저: 상태 변경(UPDATE) 실패';
-  assert _t.affected(format('delete from shift_assignment where schedule_id = %s', v_id)) = 1, '매니저: 배정 DELETE 실패';
-  insert into shift_assignment (schedule_id, user_id, work_date, planned_start, planned_end, is_modified, modified_by, has_warning)
-  values (v_id, 3, '2026-12-07', '12:00', '17:00', true, 2, false);
-  assert _t.affected(format('update work_schedule set status = ''초안'' where schedule_id = %s', v_id)) = 1, '매니저: 검토 완료(초안으로) 실패';
+  -- 매니저는 조회만: 상태 변경·배정 수정은 RLS 로 막힌다(보이지 않는 행이라 0건 처리)
+  assert _t.affected(format('update work_schedule set status = ''검토중'' where schedule_id = %s', v_id)) = 0, '매니저가 근무표 상태를 바꿈';
+  assert _t.affected(format('delete from shift_assignment where schedule_id = %s', v_id)) = 0, '매니저가 배정을 삭제함';
+  assert _t.denied(format('insert into shift_assignment (schedule_id, user_id, work_date, planned_start, planned_end, is_modified, modified_by, has_warning) values (%s, 3, date ''2026-12-07'', time ''12:00'', time ''17:00'', true, 2, false)', v_id)), '매니저가 배정을 추가함';
+  -- 검토 요청이 없으면 검토 완료도 안 된다
+  assert _t.denied(format('select submit_schedule_review(%s, null)', v_id)), '검토 요청 전에 검토 완료됨';
   -- 확정·공개는 점주만 (RLS 는 값을 못 보므로 트리거가 막는다)
   assert _t.denied(format('update work_schedule set status = ''확정'', is_published = true where schedule_id = %s', v_id)), '매니저가 근무표를 확정함';
   assert _t.denied(format('update work_schedule set is_published = true where schedule_id = %s', v_id)), '매니저가 근무표를 공개함';
+end $$;
+
+select _t.as_user('owner@example.com');
+do $$
+declare v_id bigint := (select v from _t.ctx where k = 'sched');
+begin
+  assert _t.affected(format('update work_schedule set status = ''검토중'' where schedule_id = %s', v_id)) = 1, '점주: 검토 요청 실패';
+end $$;
+
+select _t.as_user('jang@example.com');
+do $$
+declare v_id bigint := (select v from _t.ctx where k = 'sched');
+begin
+  perform submit_schedule_review(v_id, '토요일 저녁 인원 확인 부탁');
+  assert (select status from work_schedule where schedule_id = v_id) = '초안', '매니저: 검토 완료(RPC) 후 초안이 아님';
+end $$;
+
+select _t.as_user('jung@example.com');
+do $$
+declare v_id bigint := (select v from _t.ctx where k = 'sched');
+begin
+  assert _t.denied(format('select submit_schedule_review(%s, null)', v_id)), '알바생이 검토 완료함';
 end $$;
 
 select _t.as_user('owner@example.com');

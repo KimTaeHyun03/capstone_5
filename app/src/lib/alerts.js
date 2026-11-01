@@ -24,15 +24,22 @@ export function fmtAt(ts) {
 export async function fetchReports() {
   const { data, error } = await db()
     .from('shortage_report')
-    .select('report_id, ingredient_id, memo, reported_at, reporter:user_account!reporter_id(name)')
+    .select('report_id, ingredient_id, reporter_id, memo, reported_at')
     .eq('status', '접수')
     .order('reported_at', { ascending: false });
   if (error) throw error;
+  // 신고자 이름은 이름·역할만 보이는 직원 목록(staff_directory)에서 찾는다
+  const names = new Map();
+  if (data.length) {
+    const dir = await db().from('staff_directory').select('user_id, name').in('user_id', [...new Set(data.map((r) => r.reporter_id))]);
+    if (dir.error) throw dir.error;
+    dir.data.forEach((u) => names.set(u.user_id, u.name));
+  }
   return data.map((r) => ({
     id: `r${r.report_id}`,
     reportId: r.report_id,
     ingredientId: `i${r.ingredient_id}`,
-    by: r.reporter?.name ?? '',
+    by: names.get(r.reporter_id) ?? '',
     at: fmtAt(r.reported_at),
     note: r.memo ?? '',
   }));

@@ -7,7 +7,7 @@ import { INGREDIENTS, ORDERS, SHORTAGE_REPORTS, NOTIFICATIONS, STAFF, MENUS, SHI
 import { NEED, cellKey, generateDraft, rangesToAvail, rangesToSlots, slotsToRanges, warningCells } from '../domain/index.js';
 import { supabase } from '../lib/supabase.js';
 import * as api from '../lib/api.js';
-import { fetchSchedule as fetchScheduleRows, saveCell, setScheduleState, syncWarnings } from '../lib/scheduleRepo.js';
+import { completeReview, fetchSchedule as fetchScheduleRows, saveCell, setScheduleState, syncWarnings } from '../lib/scheduleRepo.js';
 import { fetchInventory } from '../lib/inventory.js';
 import { fetchReports, fetchNotifications } from '../lib/alerts.js';
 import { fetchOrders, fetchRecommendations } from '../lib/orders.js';
@@ -215,13 +215,19 @@ export function AppStateProvider({ children }) {
     return persist(() => setScheduleState(scheduleId.current, state, byUserId));
   };
 
+  // 2-4 · 매니저 검토 완료(+의견). 점주 알림은 DB 가 보낸다
+  const completeScheduleReview = (comment) => {
+    setSchedState('draft');
+    return persist(() => completeReview(scheduleId.current, comment));
+  };
+
   const lowStock = useMemo(() => inventory.filter((i) => i.stock < i.min), [inventory]);
   const unread = notifications.filter((n) => !n.read).length;
 
   const value = {
     ops,
     schedState, setSchedState, assign, setAssign, need, edited, setEdited,
-    generateSchedule, editScheduleCell, changeScheduleState,
+    generateSchedule, editScheduleCell, changeScheduleState, completeScheduleReview,
     inventory, setInventory, inventorySource, lowStock, orders, reloadOrders, correction, reloadCorrection, recs, recsLoaded, reloadRecs,
     reports, setReports, reloadInventory, reloadReports, loadAlerts, notifications, setNotifications, unread, notify,
     staff, setStaff, thisWeek, menus, setMenus, clock, setClock,

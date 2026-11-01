@@ -41,6 +41,13 @@ const SOURCES = [
     title: ['fstvlNm'], start: ['fstvlStartDate'], end: ['fstvlEndDate'], startTime: [] as string[], endTime: [] as string[] },
 ];
 
+// 두 좌표 사이 거리(m). DB 의 app.haversine_m 과 같은 식이다.
+function distanceM(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const a = Math.sin(rad(lat2 - lat1) / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lon2 - lon1) / 2) ** 2;
+  return Math.round(6371000 * 2 * Math.asin(Math.sqrt(a)));
+}
+
 async function fetchSource(src: typeof SOURCES[number], todayIso: string, lastIso: string, lat: number, lon: number, radiusM: number) {
   // 위도 1도 ≈ 111km. 반경보다 넉넉한 사각형으로 먼저 걸러 DB 로 보내는 양을 줄인다(정확한 거리는 DB 가 계산).
   const dLat = (radiusM * 2) / 111000, dLon = dLat / Math.max(Math.cos((lat * Math.PI) / 180), 0.2);
@@ -129,10 +136,13 @@ Deno.serve(async (request: Request) => {
       if (!eventKey) return reply({ error: '행사 불러오기가 아직 설정되지 않았습니다. (PUBLIC_EVENT_API_KEY 필요)', code: 'not_configured' }, 503);
       if (store?.latitude == null) return reply({ error: '매장 위치가 아직 없습니다. 먼저 매장 위치를 등록하세요.', code: 'no_location' }, 422);
       const { data: rad } = await admin.from('store').select('event_radius_m').eq('store_id', actor.store_id).single();
-      const { events, errors, counts } = await fetchEvents(Math.min(Math.max(Number(days) || 28, 7), 60), Number(store.latitude), Number(store.longitude), rad?.event_radius_m ?? 1000);
+      const radiusM = rad?.event_radius_m ?? 1000;
+      const { events, errors, counts } = await fetchEvents(Math.min(Math.max(Number(days) || 28, 7), 60), Number(store.latitude), Number(store.longitude), radiusM);
       const { data: added, error } = await admin.rpc('upsert_synced_events', { p_store: actor.store_id, p_events: events });
       if (error) return reply({ error: error.message }, 400);
-      return reply({ fetched: events.length, added, counts, errors });
+      // fetched = 사각형 범위로 받은 수, in_radius = 그중 실제 반경(원) 안의 수(DB 가 저장하는 대상), added = 새로 저장된 수. 나머지 in_radius - added 건은 이미 있던 행사를 갱신한 것
+      const inRadius = events.filter((e) => distanceM(Number(store.latitude), Number(store.longitude), Number(e.latitude), Number(e.longitude)) <= radiusM).length;
+      return reply({ fetched: events.length, in_radius: inRadius, added, counts, errors });
     }
     return reply({ error: '지원하지 않는 동작입니다.' }, 400);
   } catch (e) {

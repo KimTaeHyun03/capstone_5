@@ -130,7 +130,7 @@ export function SalesStatusPage() {
   const sales = useSales();
   const [range, setRange] = useState('last');
   const head = (
-    <PageHead eyebrow="매출 분석 · 1-2" title="매출 현황" desc="요일·시간대별로 언제 손님이 몰리는지 확인합니다."
+    <PageHead eyebrow="매출 분석" title="매출 현황" desc="요일·시간대별로 언제 손님이 몰리는지 확인합니다."
       actions={sales.last && <Segment label="기간" value={range} onChange={setRange}
         options={[{ value: 'last', label: `최근 주 ${sales.last.dates[0]}~` }, { value: 'avg', label: `최근 ${sales.avg.weeks}주 평균` }]} />} />
   );
@@ -152,8 +152,8 @@ export function SalesStatusPage() {
     <>
       {head}
       <div className="stack-lg">
-        <Alert tone="info" title="POS 연동 전에는 직접 입력·CSV 업로드로 판매를 기록합니다">
-          판매 기록 화면(1-1)에서 저장한 판매가 집계되어 이 화면에 반영됩니다.{sales.demo ? ' 지금은 예시 매출입니다.' : ' 지금은 확정된 매출 집계(sales_summary)를 보여 줍니다.'}
+        <Alert tone="info" title="판매 기록으로 저장한 판매가 반영됩니다">
+          판매 기록 화면에서 저장한 판매가 집계되어 이 화면에 나타납니다.{sales.demo ? ' 지금은 예시 매출입니다.' : ' 확정된 매출만 보여 줍니다.'}
         </Alert>
         <div className="grid-3">
           <StatCard label="주간 매출" value={man(total)} unit="만원" />
@@ -165,7 +165,7 @@ export function SalesStatusPage() {
         </Panel>
         <Panel id="ss-menu" title="메뉴별 판매" meta={sales.demo ? '지난주' : rangeLabel(sales.last.dates)}>
           {menus.length === 0 ? (
-            <EmptyState icon="inbox" title="이 기간의 판매 기록이 없습니다">메뉴별 판매는 1-1 판매 기록이 저장되면 표시됩니다.</EmptyState>
+            <EmptyState icon="inbox" title="이 기간의 판매 기록이 없습니다">메뉴별 판매는 판매 기록을 저장하면 표시됩니다.</EmptyState>
           ) : (
             <div className="table-wrap">
               <table>
@@ -217,7 +217,7 @@ export function ForecastPage() {
 
   const fc = sales.forecast;
   const head = (
-    <PageHead eyebrow="매출 분석 · 1-3" title="매출 예측"
+    <PageHead eyebrow="매출 분석" title="매출 예측"
       desc={fc ? `${forecastRange(sales)} 예측입니다. 최근 4주 같은 요일·시간대 매출 평균에 증감률을 곱해 계산합니다.` : '최근 4주 같은 요일·시간대 매출 평균에 증감률을 곱해 다음 주 매출을 예측합니다.'}
       actions={<>{runButton}<Button icon="calendar" to="/owner/work/schedule">이 예측으로 근무표 만들기</Button></>} />
   );

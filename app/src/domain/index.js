@@ -15,6 +15,8 @@ export const availRanges = (a) => (!a ? [] : Array.isArray(a[0]) ? a : [a]);
 export const fmtAvail = (a) => availRanges(a).map(fmtRange).join(', ');
 
 export const canWork = (staff, di, shift) => availRanges(staff.avail[di]).some((r) => r[0] <= shift.start && r[1] >= shift.end);
+// 배정 검증용: 그 주 가능시간을 내지 않은 직원은 초안 자동 생성과 같이 모든 시간 가능으로 본다
+export const canAssign = (staff, di, shift) => staff.submitted === false || canWork(staff, di, shift);
 
 // 2-1 · 시프트 선택({요일: [오전, 오후, 저녁] 0/1}) ↔ availability 행({day, start, end}). 이어지는 시프트는 한 구간으로 합친다.
 export function slotsToRanges(slots) {
@@ -90,7 +92,7 @@ export function violations(assign, staff = STAFF) {
     const s = SHIFTS.find((x) => x.id === sid);
     ids.forEach((id) => {
       const st = staff.find((x) => x.id === id);
-      if (!canWork(st, Number(di), s)) list.push(`${st.name} ${DAYS[di]} ${s.label} 가능시간 밖 배정`);
+      if (!canAssign(st, Number(di), s)) list.push(`${st.name} ${DAYS[di]} ${s.label} 가능시간 밖 배정`);
     });
   });
   return list;
@@ -105,7 +107,7 @@ export function warningCells(assign, staff = STAFF) {
     const s = SHIFTS.find((x) => x.id === sid);
     ids.forEach((id) => {
       const st = staff.find((x) => x.id === id);
-      if (hrs[id] > st.maxHours || !canWork(st, Number(di), s)) out.push({ k, id });
+      if (hrs[id] > st.maxHours || !canAssign(st, Number(di), s)) out.push({ k, id });
     });
   });
   return out;

@@ -11,7 +11,7 @@ export function StorePage() {
   const [edit,setEdit]=useState(null), action=useAction();
   const employees=staff.filter(s=>s.role!=='점주');
   const fresh={name:'',email:'',phone:'',role:'알바생',wage:10320,maxHours:20,status:'초대됨'};
-  return <><PageHead eyebrow="기초 정보 · 7-1" title="매장·직원" desc="직원 정보 저장 후 이메일 초대를 발송할 수 있습니다." actions={<Button onClick={()=>setEdit({kind:'staff',data:fresh})}>직원 등록</Button>}/><div className="stack-lg"><DataNotice/><ErrorText error={action.error}/>
+  return <><PageHead eyebrow="기초 정보" title="매장·직원" desc="직원 정보 저장 후 이메일 초대를 발송할 수 있습니다." actions={<Button onClick={()=>setEdit({kind:'staff',data:fresh})}>직원 등록</Button>}/><div className="stack-lg"><DataNotice/><ErrorText error={action.error}/>
     <Panel title="매장 정보" actions={<Button variant="secondary" onClick={()=>setEdit({kind:'store',data:store})}>수정</Button>}>
       <dl className="kv"><dt>매장명</dt><dd>{store.name}</dd><dt>주소</dt><dd>{store.address||'—'}</dd><dt>전화</dt><dd>{store.phone||'—'}</dd><dt>영업시간</dt><dd>{store.open}–{store.close}</dd></dl>
     </Panel>
@@ -26,7 +26,7 @@ export function MenuPage() {
   const {ops}=useApp(),{menus,recipes,ingredients}=ops;
   const [edit,setEdit]=useState(null),[recipe,setRecipe]=useState(null);
   const missing=menus.filter(m=>!recipes[m.id]?.length);
-  return <><PageHead eyebrow="기초 정보 · 7-2 · 7-4" title="메뉴·레시피" desc="재료 단가와 1개당 소요량으로 메뉴 원가를 계산합니다." actions={<Button onClick={()=>setEdit({name:'',category:'커피',price:0,onSale:true})}>메뉴 추가</Button>}/><div className="stack-lg"><DataNotice/><CatalogCsvImport kind="menu" title="메뉴 CSV로 한 번에 등록"/><CatalogCsvImport kind="recipe" title="레시피 CSV로 한 번에 등록 (재료·메뉴를 먼저 등록하세요)"/>
+  return <><PageHead eyebrow="기초 정보" title="메뉴·레시피" desc="재료 단가와 1개당 소요량으로 메뉴 원가를 계산합니다." actions={<Button onClick={()=>setEdit({name:'',category:'커피',price:0,onSale:true})}>메뉴 추가</Button>}/><div className="stack-lg"><DataNotice/><CatalogCsvImport kind="menu" title="메뉴 CSV로 한 번에 등록"/><CatalogCsvImport kind="recipe" title="레시피 CSV로 한 번에 등록 (재료·메뉴를 먼저 등록하세요)"/>
     {!!missing.length&&<Alert tone="warning" title={`레시피 미등록 ${missing.length}개`}>{missing.map(m=>m.name).join(', ')} — 재고 자동 차감에 필요한 레시피를 등록하세요.</Alert>}
     <Panel title="메뉴 목록"><div className="table-wrap"><table><thead><tr><th>메뉴 / ID</th><th>분류</th><th>판매가</th><th>원가</th><th>원가율</th><th>판매</th><th>관리</th></tr></thead><tbody>{menus.map(m=>{
       const cost=recipeCost(recipes[m.id]||[],ingredients),has=!!recipes[m.id]?.length;
@@ -45,6 +45,6 @@ function RecipeEditor({menu,onClose}) {
 }
 export function IngredientPage() {
   const {ops}=useApp(),[edit,setEdit]=useState(null);
-  return <><PageHead eyebrow="기초 정보 · 7-3" title="재료" desc="재료를 추가하면 수량 0의 재고 항목이 함께 생성됩니다." actions={<Button onClick={()=>setEdit({name:'',unit:'개',price:0,min:0,orderUnit:1,orderLabel:'',supplier:''})}>재료 추가</Button>}/><div className="stack-lg"><DataNotice/><CatalogCsvImport kind="ingredient"/><Panel title="재료 목록"><div className="table-wrap"><table><thead><tr><th>재료</th><th>단위</th><th>단가</th><th>최소 보유</th><th>발주 수량</th><th>거래처</th><th>관리</th></tr></thead><tbody>{ops.ingredients.map(i=><tr key={i.id}><th>{i.name}</th><td>{i.unit}</td><td>{won(i.price)}</td><td>{i.min}{i.unit}</td><td>{i.orderUnit}{i.unit}</td><td>{i.supplier||'—'}</td><td><Button variant="text" onClick={()=>setEdit(i)}>수정</Button><DeleteButton label={i.name} onDelete={()=>ops.save('ingredient',i,true)}/></td></tr>)}{!ops.ingredients.length&&<tr><td colSpan={7}>등록된 재료가 없습니다.</td></tr>}</tbody></table></div></Panel></div>
+  return <><PageHead eyebrow="기초 정보" title="재료" desc="재료를 추가하면 수량 0의 재고 항목이 함께 생성됩니다." actions={<Button onClick={()=>setEdit({name:'',unit:'개',price:0,min:0,orderUnit:1,orderLabel:'',supplier:''})}>재료 추가</Button>}/><div className="stack-lg"><DataNotice/><CatalogCsvImport kind="ingredient"/><Panel title="재료 목록"><div className="table-wrap"><table><thead><tr><th>재료</th><th>단위</th><th>단가</th><th>최소 보유</th><th>발주 수량</th><th>거래처</th><th>관리</th></tr></thead><tbody>{ops.ingredients.map(i=><tr key={i.id}><th>{i.name}</th><td>{i.unit}</td><td>{won(i.price)}</td><td>{i.min}{i.unit}</td><td>{i.orderUnit}{i.unit}</td><td>{i.supplier||'—'}</td><td><Button variant="text" onClick={()=>setEdit(i)}>수정</Button><DeleteButton label={i.name} onDelete={()=>ops.save('ingredient',i,true)}/></td></tr>)}{!ops.ingredients.length&&<tr><td colSpan={7}>등록된 재료가 없습니다.</td></tr>}</tbody></table></div></Panel></div>
     {edit&&<Editor title={edit.id?'재료 수정':'재료 추가'} initial={edit} onClose={()=>setEdit(null)} onSave={f=>ops.save('ingredient',f)} fields={[{key:'name',label:'재료명',required:true},{key:'unit',label:'사용 단위 (kg, L, 개 등)',required:true},{key:'price',label:'사용 단위당 단가(원)',type:'number'},{key:'min',label:'최소 보유량',type:'number',step:'0.01'},{key:'orderUnit',label:'1회 발주 단위당 사용 수량',type:'number',step:'0.001'},{key:'orderLabel',label:'발주 단위명 (예: 12L 묶음)'},{key:'supplier',label:'거래처'}]}/>}</>;
 }

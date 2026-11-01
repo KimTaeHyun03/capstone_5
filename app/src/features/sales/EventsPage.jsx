@@ -41,7 +41,7 @@ export function EventsPage() {
   if (!supabase) {
     return (
       <>
-        <PageHead eyebrow="1-3" title="주변 행사" desc="매장 주변 행사를 예측과 발주에 반영합니다." />
+        <PageHead  title="주변 행사" desc="매장 주변 행사를 예측과 발주에 반영합니다." />
         <EmptyState icon="calendar" title="DB에 연결된 상태에서만 사용할 수 있습니다" />
       </>
     );
@@ -64,7 +64,7 @@ export function EventsPage() {
 
   return (
     <>
-      <PageHead eyebrow="1-3 · 이벤트 E4" title="주변 행사"
+      <PageHead  title="주변 행사"
         desc="매장 근처 행사를 찾아 다음 주 예상 매출과 권장 발주량에 반영합니다. '반영'으로 바꾼 행사만 예측에 들어갑니다."
         actions={<Button icon="plus" onClick={() => { setForm({ ...EMPTY }); setFormError(''); }}>행사 직접 등록</Button>} />
 

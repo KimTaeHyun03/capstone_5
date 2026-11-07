@@ -1,6 +1,6 @@
 -- =====================================================================
 -- 시연용 근무표·출퇴근·급여 예시 데이터 (모두 가짜). seed_demo_data.sql, seed_demo_staff.sql 실행 뒤에 실행한다.
---   원격 적용: npx supabase db query --linked -f seed_demo_attendance.sql
+--   원격 적용: npx supabase db query --linked -f data/seed/seed_demo_attendance.sql
 -- 한 트랜잭션이라 중간에 실패하면 아무것도 반영되지 않는다. 이미 실행했으면(10.19 이후 출퇴근 기록이 있으면) 중단한다.
 --
 -- 하는 일

@@ -1,5 +1,5 @@
 -- 시연용 직원 2명 추가 + 11.02 주 가능시간 (모두 가짜 데이터). 인원 부족 시연을 줄이기 위한 보강이다.
--- 실행: npx supabase db query --linked -f seed_demo_staff.sql  (재실행 안전: 이미 있으면 건너뜀)
+-- 실행: npx supabase db query --linked -f data/seed/seed_demo_staff.sql  (재실행 안전: 이미 있으면 건너뜀)
 -- 참고: 스케줄 화면의 직원 목록은 get_schedule 이 내려 주는 DB 직원으로 채워진다(화면 코드에 직원을 추가할 필요 없음).
 
 begin;

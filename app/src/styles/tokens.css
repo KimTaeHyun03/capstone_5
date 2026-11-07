@@ -1,4 +1,4 @@
-/* 디자인 토큰 — DESIGN-notion.md 기준. 색·글꼴·간격·모서리·그림자·모션은 여기서만 정의한다.
+/* 디자인 토큰 — docs/DESIGN-notion.md 기준. 색·글꼴·간격·모서리·그림자·모션은 여기서만 정의한다.
    다른 톤으로 바꾸려면 이 파일만 교체하면 된다. */
 @font-face {
   font-family: 'Pretendard GOV';

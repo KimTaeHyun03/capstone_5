@@ -115,7 +115,8 @@
 - 1-1 판매 기록의 출처(POS 연동 여부)는 미정이다. 임의로 가정하지 말고 확인한다. 현재 구현은 POS 연동이 불가능한 상황을 전제로 **CSV 업로드·직접 입력** 방식이다(6 오차 보정의 기간 마감이 수동인 이유).
 - 비밀번호, 시크릿 키, `.env*`는 저장소에 올리지 않는다(`.gitignore`로 제외). 공개용(publishable) 키만 환경변수로 쓴다.
 - DB 테이블은 확정된 22개만 만든다. 26개안(7주차 보완본)의 테이블을 추가하지 않는다.
-  - **예외(팀 결정)**: 주변 행사 반영 기능(시험 단계)에 한해 `local_event` 1개를 추가했다([구현안](<주변행사_연동_구현안.md>)). 롤백 SQL: `supabase/handoff/rollback_local_events.sql`.
+  - **예외(팀 결정)**: 주변 행사 반영 기능(시험 단계)에 한해 `local_event` 1개를 추가했다([구현안](<docs/주변행사_연동_구현안.md>)). 롤백 SQL: `supabase/handoff/rollback_local_events.sql`.
+  - 컬럼 추가는 허용한다(`menu.sale_unit` 판매 단위, `store.latitude/longitude/event_radius_m` 등). 직원 정보·급여 조회는 점주·본인만 하고, 매니저는 근무표 조회와 검토 완료(의견)만 한다(2026-11-01 권한 정리).
 - 7주차 단계에서는 기능 구현 없이 환경 연결과 화면 레이아웃만 한다.
 
 ## 5. 개발환경 연결 현황 (2026-10-14 기준)
@@ -123,7 +124,8 @@
 - Vercel: 프로젝트 `capstone-5`, GitHub 연결·`main` 푸시 시 자동 배포
 - Supabase: 프로젝트 `capstone_5`, 서울(`ap-northeast-2`) 리전
 - Vercel 환경변수(Production·Preview·Development): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- 로컬 확인: `vercel dev`(포트 3000)
+- 로컬 확인: `cd app && npm run dev`(`app/.env.local`에 위 두 환경변수 필요). 체험(예시 데이터) 모드는 2026-11-01에 삭제했다 — 로그인은 항상 실제 Supabase 계정이다.
+- Edge Function(배포됨): `ai-insight`, `invite-employee`, `sync-local-events`. cron: `shift-reminders`, `weekly-jobs`, `availability-reminder`(금 10시 KST), `availability-summary`(토 9시 KST). 이어서 작업할 때는 [인수인계_메모.md](<인수인계_메모.md>)를 먼저 본다.
 
 ## 6. 산출물 폴더 안내 (`산출물/`)
 | 폴더 | 내용 |

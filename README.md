@@ -9,9 +9,13 @@
 
 ---
 ## Screenshot
-<!-- 화면 캡처를 docs/images/ 에 넣은 뒤 아래 주석을 풀어 주세요.
-![화면](docs/images/screenshot.png)
--->
+| 점주 · 대시보드 | 점주 · 매출 예측 | 점주 · 스케줄 편성 |
+|:---:|:---:|:---:|
+| <img src="docs/images/대시보드.png" width="300" alt="점주 대시보드"> | <img src="docs/images/매출예측.png" width="300" alt="점주 매출 예측"> | <img src="docs/images/스케줄편성.png" width="300" alt="점주 스케줄 편성"> |
+
+| 매니저 · 실사·폐기 기록 | 알바생 · 근무표 (모바일) | 알바생 · 부족 신고 (모바일) |
+|:---:|:---:|:---:|
+| <img src="docs/images/매니저%20폐기%20기록.png" width="300" alt="매니저 실사·폐기 기록"> | <img src="docs/images/알바생%20근무표.png" width="200" alt="알바생 근무표"> | <img src="docs/images/알바생%20부족신고.png" width="200" alt="알바생 부족 신고"> |
 
 ---
 ## 접속
